@@ -59,7 +59,7 @@ func generateAndPrintKey(name, email string) error {
 		return err
 	}
 
-	mnemonic, err := keyPair.EncodeMnemonic()
+	recoveryMnemonic, err := keyPair.EncodeMnemonic()
 	if err != nil {
 		return err
 	}
@@ -70,11 +70,7 @@ func generateAndPrintKey(name, email string) error {
 	// TODO print in color
 
 	fmt.Printf("This is the key mnemonic which can be used to deterministically recover the private key:\n\n")
-	for i, word := range mnemonic {
-		humanIndex := strconv.Itoa(i + 1)
-		spacing := strings.Repeat(" ", 4-len(humanIndex))
-		fmt.Printf("%s:%s%s\n", humanIndex, spacing, word)
-	}
+	printMnemonic(recoveryMnemonic)
 	fmt.Printf("\nSave this phrase in a secure place, preferably offline on paper.\n\n")
 
 	fmt.Printf(
@@ -104,4 +100,12 @@ func armorEncode(blockType string, data []byte) (string, error) {
 		return "", fmt.Errorf("failed to close PGP armor encoder: %w", err)
 	}
 	return buf.String(), nil
+}
+
+func printMnemonic(words []string) {
+	for i, word := range words {
+		humanIndex := strconv.Itoa(i + 1)
+		spacing := strings.Repeat(" ", 4-len(humanIndex))
+		fmt.Printf("%s:%s%s\n", humanIndex, spacing, word)
+	}
 }

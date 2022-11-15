@@ -70,3 +70,25 @@ func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 	}
 	return words, nil
 }
+
+func DecodeMnemonic(words []string) (seed []byte, birthday time.Time, err error) {
+	indices, err := mnemonic.DecodeMnemonic(words)
+	if err != nil {
+		return
+	}
+
+	payloadInt, err := mnemonic.DecodeIndices(indices)
+	if err != nil {
+		return
+	}
+
+	// Determine key birthday from lowest trailing 15 bits
+	birthdayOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<maxBirthdayBits)-1))).Int64()
+	birthday = EpochStart.Add(time.Duration(birthdayOffset) * EpochIncrement)
+	payloadInt.Rsh(payloadInt, maxBirthdayBits)
+
+	// Remaining bits are all seed data
+	seed = payloadInt.FillBytes(make([]byte, 16))
+
+	return
+}

@@ -7,6 +7,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"golang.org/x/crypto/openpgp"
+
+	"github.com/kklash/mnemonikey"
 )
 
 // TODO calculate from default seed size
@@ -36,18 +41,40 @@ func recoverAndPrintKey(name, email string, wordCount uint) error {
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(email)
 
-	mnemonic, err := mnemonicInput(wordCount)
+	words, err := userInputMnemonic(wordCount)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(mnemonic)
+	seed, birthday, err := mnemonikey.DecodeMnemonic(words)
+	if err != nil {
+		return fmt.Errorf("failed to decode mnemonic: %w", err)
+	}
+
+	keyPair, err := mnemonikey.NewDeterministicKeyPair(seed, name, email, birthday, time.Time{})
+	if err != nil {
+		return fmt.Errorf("failed to re-derive key pair: %w", err)
+	}
+
+	keyPacketData, err := keyPair.EncodePGP([]byte(nil))
+	if err != nil {
+		return err
+	}
+
+	pgpArmorKey, err := armorEncode(openpgp.PrivateKeyType, keyPacketData)
+	if err != nil {
+		return err
+	}
+
+	// TODO print debug data about derived key, Key ID, etc.
+	fmt.Printf("Re-derived the following OpenPGP key:\n\n")
+	fmt.Println(pgpArmorKey)
 
 	return nil
 }
 
-func mnemonicInput(wordCount uint) ([]string, error) {
-	mnemonic := make([]string, wordCount)
+func userInputMnemonic(wordCount uint) ([]string, error) {
+	words := make([]string, wordCount)
 	scanner := bufio.NewScanner(os.Stdin)
 
 	fmt.Printf("Enter the words of your recovery mnemonic in sequence.\n\n")
@@ -72,8 +99,8 @@ func mnemonicInput(wordCount uint) ([]string, error) {
 		// Wipe previous line from terminal
 		fmt.Print(strings.Repeat(" ", len(prompt)+len(wordInput)) + "\r")
 
-		mnemonic[i] = strings.TrimSpace(wordInput)
+		words[i] = strings.TrimSpace(wordInput)
 	}
 
-	return mnemonic, nil
+	return words, nil
 }
