@@ -7,9 +7,8 @@ import (
 
 var ErrInvalidWord = errors.New("word is not a member of the BIP39 word list")
 
-func DecodeIndices(indices []uint16) ([]byte, error) {
+func DecodeIndices(indices []uint16) (*big.Int, error) {
 	payloadInt := new(big.Int)
-	payloadSize := (len(indices)*11 + 7) / 8
 
 	for _, index := range indices {
 		if int(index) >= len(WordList) {
@@ -19,7 +18,7 @@ func DecodeIndices(indices []uint16) ([]byte, error) {
 		payloadInt.Or(payloadInt, big.NewInt(int64(index)))
 	}
 
-	return payloadInt.FillBytes(make([]byte, payloadSize)), nil
+	return payloadInt, nil
 }
 
 func DecodeMnemonic(mnemonic []string) ([]uint16, error) {
