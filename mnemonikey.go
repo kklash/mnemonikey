@@ -1,12 +1,15 @@
 package mnemonikey
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/kklash/mnemonikey/mnemonic"
 	"github.com/kklash/mnemonikey/pgp"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 )
 
 const EpochIncrement = time.Hour * 24
@@ -54,6 +57,18 @@ func (keyPair *DeterministicKeyPair) EncodePGP(password []byte) ([]byte, error) 
 	return keyPair.pgpKeyPair.EncodePackets(password)
 }
 
+func (keyPair *DeterministicKeyPair) EncodePGPArmor(password []byte) (string, error) {
+	keyPacketData, err := keyPair.pgpKeyPair.EncodePackets(password)
+	if err != nil {
+		return "", err
+	}
+	pgpArmorKey, err := armorEncode(openpgp.PrivateKeyType, keyPacketData)
+	if err != nil {
+		return "", err
+	}
+	return pgpArmorKey, nil
+}
+
 func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 	payloadInt := new(big.Int).SetBytes(keyPair.seed)
 	payloadInt.Lsh(payloadInt, uint(maxBirthdayBits))
@@ -91,4 +106,19 @@ func DecodeMnemonic(words []string) (seed []byte, birthday time.Time, err error)
 	seed = payloadInt.FillBytes(make([]byte, 16))
 
 	return
+}
+
+func armorEncode(blockType string, data []byte) (string, error) {
+	buf := new(bytes.Buffer)
+	armorWriter, err := armor.Encode(buf, blockType, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to construct armor encoder: %w", err)
+	}
+	if _, err := armorWriter.Write(data); err != nil {
+		return "", fmt.Errorf("failed to write PGP packets to armor encoder: %w", err)
+	}
+	if err := armorWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close PGP armor encoder: %w", err)
+	}
+	return buf.String(), nil
 }

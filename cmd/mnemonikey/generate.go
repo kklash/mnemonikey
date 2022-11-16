@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/kklash/mnemonikey"
-	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 )
 
@@ -49,12 +48,11 @@ func generateAndPrintKey(name, email string) error {
 		return err
 	}
 
-	keyPacketData, err := keyPair.EncodePGP([]byte(nil))
 	if err != nil {
 		return err
 	}
 
-	pgpArmorKey, err := armorEncode(openpgp.PrivateKeyType, keyPacketData)
+	pgpArmorKey, err := keyPair.EncodePGPArmor([]byte(nil))
 	if err != nil {
 		return err
 	}

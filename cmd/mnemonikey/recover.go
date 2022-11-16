@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/openpgp"
-
 	"github.com/kklash/mnemonikey"
 )
 
@@ -56,12 +54,7 @@ func recoverAndPrintKey(name, email string, wordCount uint) error {
 		return fmt.Errorf("failed to re-derive key pair: %w", err)
 	}
 
-	keyPacketData, err := keyPair.EncodePGP([]byte(nil))
-	if err != nil {
-		return err
-	}
-
-	pgpArmorKey, err := armorEncode(openpgp.PrivateKeyType, keyPacketData)
+	pgpArmorKey, err := keyPair.EncodePGPArmor([]byte(nil))
 	if err != nil {
 		return err
 	}
