@@ -2,6 +2,7 @@ package mnemonikey
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -15,48 +16,66 @@ import (
 const EpochIncrement = time.Hour * 24
 
 // EpochStart is the start of the epoch after which key creation times are encoded
-// in backup seeds as a day counter.
+// in backup seeds as a day counter. It is exactly midnight in UTC time on the
+// new year's eve between 2019 and 2020.
 //
 // In unix time, this epoch is exactly 1577836800 seconds after the unix epoch.
 var EpochStart = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 
-const maxBirthdayBits = 15
+const (
+	BirthdayBitCount uint = 15
+	MinMnemonicSize  uint = 13
+)
 
-var MaxBirthday = EpochStart.Add(EpochIncrement * (time.Duration(1<<maxBirthdayBits) - 1))
+var MaxBirthday = EpochStart.Add(EpochIncrement * (time.Duration(1<<BirthdayBitCount) - 1))
+
+var ErrExpiryTooEarly = errors.New("expiry time predates key birthday")
 
 type DeterministicKeyPair struct {
-	pgpKeyPair *pgp.KeyPair
-	seed       []byte
-	birthday   uint16
+	pgpKeyPair     *pgp.KeyPair
+	seed           *Seed
+	birthdayOffset uint16
 }
 
-func NewDeterministicKeyPair(seed []byte, name, email string, now, expiry time.Time) (*DeterministicKeyPair, error) {
+func NewDeterministicKeyPair(seed *Seed, name, email string, now, expiry time.Time) (*DeterministicKeyPair, error) {
 	userID := &pgp.UserID{
 		Name:  name,
 		Email: email,
 	}
 
 	birthdayOffset := now.Sub(EpochStart) / EpochIncrement
-
 	keyCreationTime := EpochStart.Add(EpochIncrement * birthdayOffset)
-	pgpKeyPair, err := pgp.NewKeyPair(seed, userID, keyCreationTime, expiry)
+
+	if !expiry.IsZero() && keyCreationTime.After(expiry) {
+		return nil, ErrExpiryTooEarly
+	}
+
+	pgpKeyPair, err := pgp.NewKeyPair(seed.Bytes(), userID, keyCreationTime, expiry)
 	if err != nil {
 		return nil, err
 	}
 
 	keyPair := &DeterministicKeyPair{
-		pgpKeyPair: pgpKeyPair,
-		seed:       seed,
-		birthday:   uint16(birthdayOffset),
+		pgpKeyPair:     pgpKeyPair,
+		seed:           seed,
+		birthdayOffset: uint16(birthdayOffset),
 	}
 
 	return keyPair, nil
 }
 
+// FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
+func (keyPair *DeterministicKeyPair) FingerprintV4() []byte {
+	return keyPair.pgpKeyPair.MasterKey.FingerprintV4()
+}
+
+// EncodePGP encodes the key pair as a series of binary OpenPGP packets.
 func (keyPair *DeterministicKeyPair) EncodePGP(password []byte) ([]byte, error) {
 	return keyPair.pgpKeyPair.EncodePackets(password)
 }
 
+// EncodePGP encodes the key pair as a series of OpenPGP packets and formats
+// them an ASCII armor block format.
 func (keyPair *DeterministicKeyPair) EncodePGPArmor(password []byte) (string, error) {
 	keyPacketData, err := keyPair.pgpKeyPair.EncodePackets(password)
 	if err != nil {
@@ -69,12 +88,16 @@ func (keyPair *DeterministicKeyPair) EncodePGPArmor(password []byte) (string, er
 	return pgpArmorKey, nil
 }
 
+// EncodeMnemonic encodes the key pair's seed and birthday into an English recovery mnemonic.
+//
+// The recovery mnemonic, plus the user ID (name and email) are sufficient to recover
+// the entire key pair.
 func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
-	payloadInt := new(big.Int).SetBytes(keyPair.seed)
-	payloadInt.Lsh(payloadInt, uint(maxBirthdayBits))
-	payloadInt.Or(payloadInt, big.NewInt(int64(keyPair.birthday)))
+	payloadInt := new(big.Int).Set(keyPair.seed.Value)
+	payloadInt.Lsh(payloadInt, BirthdayBitCount)
+	payloadInt.Or(payloadInt, big.NewInt(int64(keyPair.birthdayOffset)))
 
-	indices, err := mnemonic.EncodeToIndices(payloadInt, len(keyPair.seed)*8+maxBirthdayBits)
+	indices, err := mnemonic.EncodeToIndices(payloadInt, keyPair.seed.EntropyBitCount+BirthdayBitCount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode seed to indices: %w", err)
 	}
@@ -84,28 +107,6 @@ func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 		return nil, fmt.Errorf("failed to encode indices to words: %w", err)
 	}
 	return words, nil
-}
-
-func DecodeMnemonic(words []string) (seed []byte, birthday time.Time, err error) {
-	indices, err := mnemonic.DecodeMnemonic(words)
-	if err != nil {
-		return
-	}
-
-	payloadInt, err := mnemonic.DecodeIndices(indices)
-	if err != nil {
-		return
-	}
-
-	// Determine key birthday from lowest trailing 15 bits
-	birthdayOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<maxBirthdayBits)-1))).Int64()
-	birthday = EpochStart.Add(time.Duration(birthdayOffset) * EpochIncrement)
-	payloadInt.Rsh(payloadInt, maxBirthdayBits)
-
-	// Remaining bits are all seed data
-	seed = payloadInt.FillBytes(make([]byte, 16))
-
-	return
 }
 
 func armorEncode(blockType string, data []byte) (string, error) {

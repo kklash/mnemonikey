@@ -12,9 +12,6 @@ import (
 	"github.com/kklash/mnemonikey"
 )
 
-// TODO calculate from default seed size
-const DefaultWordCount = 13
-
 type RecoverOptions struct {
 	Name      string
 	Email     string
@@ -45,12 +42,7 @@ func recoverAndPrintKey(name, email string, wordCount uint) error {
 		return err
 	}
 
-	seed, birthday, err := mnemonikey.DecodeMnemonic(words)
-	if err != nil {
-		return fmt.Errorf("failed to decode mnemonic: %w", err)
-	}
-
-	keyPair, err := mnemonikey.NewDeterministicKeyPair(seed, name, email, birthday, time.Time{})
+	keyPair, err := mnemonikey.RecoverKeyPair(words, name, email, time.Time{})
 	if err != nil {
 		return fmt.Errorf("failed to re-derive key pair: %w", err)
 	}

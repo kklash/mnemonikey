@@ -14,7 +14,7 @@ func DecodeIndices(indices []uint16) (*big.Int, error) {
 		if int(index) >= len(WordList) {
 			return nil, ErrInvalidIndex
 		}
-		payloadInt.Lsh(payloadInt, 11)
+		payloadInt.Lsh(payloadInt, BitsPerWord)
 		payloadInt.Or(payloadInt, big.NewInt(int64(index)))
 	}
 

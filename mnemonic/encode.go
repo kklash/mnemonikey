@@ -5,16 +5,18 @@ import (
 	"math/big"
 )
 
-var elevenMask = big.NewInt(0b11111111111)
+const BitsPerWord uint = 11
+
+var wordMask = big.NewInt(int64((1 << BitsPerWord) - 1))
 
 var ErrInvalidIndex = errors.New("mnemonic index value is too large")
 
-func EncodeToIndices(payloadInt *big.Int, bitSize int) ([]uint16, error) {
-	nWords := (bitSize + 10) / 11
+func EncodeToIndices(payloadInt *big.Int, bitSize uint) ([]uint16, error) {
+	nWords := (bitSize + BitsPerWord - 1) / BitsPerWord
 	indices := make([]uint16, nWords)
 	for i := nWords - 1; payloadInt.BitLen() > 0; i-- {
-		indices[i] = uint16(new(big.Int).And(payloadInt, elevenMask).Uint64())
-		payloadInt.Rsh(payloadInt, 11)
+		indices[i] = uint16(new(big.Int).And(payloadInt, wordMask).Uint64())
+		payloadInt.Rsh(payloadInt, BitsPerWord)
 	}
 	return indices, nil
 }
