@@ -97,11 +97,7 @@ func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 	payloadInt.Lsh(payloadInt, BirthdayBitCount)
 	payloadInt.Or(payloadInt, big.NewInt(int64(keyPair.birthdayOffset)))
 
-	indices, err := mnemonic.EncodeToIndices(payloadInt, keyPair.seed.EntropyBitCount+BirthdayBitCount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode seed to indices: %w", err)
-	}
-
+	indices := mnemonic.EncodeToIndices(payloadInt, keyPair.seed.EntropyBitCount+BirthdayBitCount)
 	words, err := mnemonic.EncodeToMnemonic(indices)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode indices to words: %w", err)
