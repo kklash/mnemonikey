@@ -28,7 +28,8 @@ var RecoverCommand = &Command[RecoverOptions]{
 			"This must be the same as the name used to originally generate the key.")
 		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional) "+
 			"This must be the same as the email used to originally generate the key.")
-		flag.UintVar(&opts.WordCount, "count", DefaultWordCount, "Number of words in the recovery mnemonic. (optional)")
+		flags.UintVar(&opts.WordCount, "count", mnemonikey.MinMnemonicSize, "Number of words in the "+
+			"recovery mnemonic. (optional)")
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {
 		return recoverAndPrintKey(opts.Name, opts.Email, opts.WordCount)
