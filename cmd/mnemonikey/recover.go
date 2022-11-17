@@ -16,6 +16,7 @@ type RecoverOptions struct {
 	Name      string
 	Email     string
 	WordCount uint
+	Expiry    string
 }
 
 var RecoverCommand = &Command[RecoverOptions]{
@@ -27,28 +28,45 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover -name myuser -email someone@someplace.com",
 		"mnemonikey recover -words 18",
 		"mnemonikey recover -name myuser -words 18",
+		"mnemonikey recover -expiry 2y",
+		"mnemonikey recover -expiry 17w",
+		"mnemonikey recover -expiry 1679285000",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
 		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. (optional)")
 		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional)")
 		flags.UintVar(&opts.WordCount, "words", mnemonikey.MinMnemonicSize, "Number of words in the "+
 			"recovery mnemonic. (optional)")
+		flags.StringVar(&opts.Expiry, "expiry", "", "Set an expiry period on the recovered key.\n"+
+			"Can be a number denominated in days (d) weeks (w) months (m) or years (y) relative to the\n"+
+			"current time, or an absolute unix timestamp number. (optional)")
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {
-		return recoverAndPrintKey(opts.Name, opts.Email, opts.WordCount)
+		return recoverAndPrintKey(opts)
 	},
 }
 
-func recoverAndPrintKey(name, email string, wordCount uint) error {
-	name = strings.TrimSpace(name)
-	email = strings.TrimSpace(email)
+func recoverAndPrintKey(opts *RecoverOptions) error {
+	name := strings.TrimSpace(opts.Name)
+	email := strings.TrimSpace(opts.Email)
 
-	words, err := userInputMnemonic(wordCount)
+	var (
+		expiry time.Time
+		err    error
+	)
+	if opts.Expiry != "" {
+		expiry, err = parseExpiry(time.Now(), opts.Expiry)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
+		}
+	}
+
+	words, err := userInputMnemonic(opts.WordCount)
 	if err != nil {
 		return err
 	}
 
-	keyPair, err := mnemonikey.RecoverKeyPair(words, name, email, time.Time{})
+	keyPair, err := mnemonikey.RecoverKeyPair(words, name, email, expiry)
 	if err != nil {
 		return fmt.Errorf("failed to re-derive key pair: %w", err)
 	}
