@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/kklash/mnemonikey/mnemonic"
 )
 
 var bigOne = big.NewInt(1)
@@ -26,7 +28,9 @@ func NewSeed(entropyInt *big.Int, entropyBitCount uint) *Seed {
 }
 
 // GenerateSeed generates a random Seed of a given bit size using the given random source.
-func GenerateSeed(random io.Reader, entropyBitCount uint) (*Seed, error) {
+func GenerateSeed(random io.Reader, wordCount uint) (*Seed, error) {
+	entropyBitCount := wordCount*mnemonic.BitsPerWord - BirthdayBitCount
+
 	maxSeedInt := new(big.Int).Lsh(bigOne, entropyBitCount)
 	entropyInt, err := rand.Int(random, maxSeedInt)
 	if err != nil {

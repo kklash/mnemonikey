@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math/big"
+	"math/rand"
 	"os"
 	"os/exec"
 	"testing"
@@ -61,11 +61,15 @@ func TestDeterministicKeyPair(t *testing.T) {
 		t.Fatalf("failed to instantiate temporary GPG: %s", err)
 	}
 
+	seed, err := GenerateSeed(rand.New(rand.NewSource(0)), MinMnemonicSize)
+	if err != nil {
+		t.Fatalf("failed to generate seed: %s", err)
+	}
+
 	name := "username"
 	email := "user@domain.com"
-	seed := NewSeed(big.NewInt(0x7777aaaabbbbcccc), 128)
 	now := time.Unix(1668576000, 0)
-	fingerprint := "860452460713D062DD4320BAA507F52874059BF2"
+	fingerprint := "838FB4440FBEBD979915C2EB8F54177D639612EA"
 
 	keyPair, err := NewDeterministicKeyPair(seed, name, email, now, time.Time{})
 	if err != nil {
