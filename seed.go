@@ -3,6 +3,7 @@ package mnemonikey
 import (
 	"crypto/rand"
 	"fmt"
+	"io"
 	"math/big"
 )
 
@@ -24,9 +25,10 @@ func NewSeed(entropyInt *big.Int, entropyBitCount uint) *Seed {
 	}
 }
 
-func RandomSeed(entropyBitCount uint) (*Seed, error) {
+// RandomSeed generates a random Seed of a given bit size using the given random source.
+func RandomSeed(random io.Reader, entropyBitCount uint) (*Seed, error) {
 	maxSeedInt := new(big.Int).Lsh(bigOne, entropyBitCount)
-	entropyInt, err := rand.Int(rand.Reader, maxSeedInt)
+	entropyInt, err := rand.Int(random, maxSeedInt)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to generate %d bits of secure random seed data: %w",
