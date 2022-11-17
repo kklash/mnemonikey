@@ -17,7 +17,14 @@ type KeyPair struct {
 	EncryptionSubkey *Curve25519Subkey
 }
 
-func NewKeyPair(seed []byte, userID *UserID, birthday, expiry time.Time) (*KeyPair, error) {
+// NewKeyPair derives a ED25519 and X25519 key pair from the given seed using
+// the Hash-based Key Derivation Function (defined in RFC-5869) with SHA256.
+// For safety, seed must be at least 16 bytes long to ensure security of the
+// derived keys.
+//
+// Sets the key's creation and expiry times to the given values and binds
+// the key to the given OpenPGP UserID.
+func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPair, error) {
 	if len(seed) < 16 {
 		return nil, fmt.Errorf("seed of size %d is too small to be secure", len(seed))
 	}
@@ -27,7 +34,7 @@ func NewKeyPair(seed []byte, userID *UserID, birthday, expiry time.Time) (*KeyPa
 	if _, err := io.ReadFull(keyReader, masterKeySeed); err != nil {
 		return nil, fmt.Errorf("failed to derive master key from seed: %w", err)
 	}
-	masterKey, err := NewED25519MasterKey(masterKeySeed, birthday, expiry)
+	masterKey, err := NewED25519MasterKey(masterKeySeed, creation, expiry)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +43,7 @@ func NewKeyPair(seed []byte, userID *UserID, birthday, expiry time.Time) (*KeyPa
 	if _, err := io.ReadFull(keyReader, subkeySeed); err != nil {
 		return nil, fmt.Errorf("failed to derive encryption subkey from seed: %w", err)
 	}
-	encryptionSubkey, err := NewCurve25519Subkey(subkeySeed, birthday, expiry, nil)
+	encryptionSubkey, err := NewCurve25519Subkey(subkeySeed, creation, expiry, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +57,9 @@ func NewKeyPair(seed []byte, userID *UserID, birthday, expiry time.Time) (*KeyPa
 }
 
 // EncodePackets encodes the KeyPair as a series of binary OpenPGP packets.
+//
+// If password is not nil and longer than 0 bytes, it is used as a key to
+// encrypt the PGP private key packets using the S2K iterated & salted algorithm.
 func (keyPair *KeyPair) EncodePackets(password []byte) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

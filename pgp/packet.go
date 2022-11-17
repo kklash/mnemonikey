@@ -2,7 +2,8 @@ package pgp
 
 import "encoding/binary"
 
-// EncodePacket encodes the Packet according to the generic OpenPGP packet encoding protocol.
+// EncodePacket encodes a binary Packet according to the generic OpenPGP
+// packet encoding protocol.
 //
 //	https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#section-4.2
 func EncodePacket(tag PacketTag, payload []byte) []byte {

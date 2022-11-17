@@ -7,31 +7,49 @@ import (
 )
 
 const (
+	// Packet versions for compatibility and decoding.
 	keyPacketVersion byte = 4
 	sigPacketVersion byte = 4
 
+	// mpiPrefixEddsaPoint is prepended to every encoded EDDSA curve point.
 	mpiPrefixEddsaPoint byte = 0x40
 
+	// s2kCountMaximum is the maximum number of salted iterations the S2K algorithm
+	// can support.
 	s2kCountMaximum byte = 0xFF
 
-	publicKeyPrefixV4          byte = 0x99
-	userIDPrefix               byte = 0xB4
+	// These prefixes are prepended before data to be hashed, usually to ensure hash
+	// preimage namespacing.
+	publicKeyPrefixV4 byte = 0x99
+	userIDPrefix      byte = 0xB4
+
+	// This specifier tells OpenPGP the expected algorithm needed to decrypt an S2K
+	// encrypted key.
 	stringToKeySpecifierPrefix byte = 254
 
+	// These are algorithm specifiers used to describe the format of a key in an
+	// OpenPGP packet.
 	keyAlgorithmECDH  byte = 18
 	keyAlgorithmEDDSA byte = 22
 
+	// These flags indicate the purpose of a PGP key.
+	// Normally a key will be used for either signing,
+	// certifying, encrypting, or authenticating.
 	keyFlagCertify               byte = 0b00000001
 	keyFlagSign                  byte = 0b00000010
 	keyFlagEncryptCommunications byte = 0b00000100
 	keyFlagEncryptStorage        byte = 0b00001000
 	keyFlagAuthenticate          byte = 0b00100000
 
+	// These bytes indicate the procedure used to encrypt keys in PGP keychains
+	// and in serialized OpenPGP packets.
 	stringToKeyUsageSimple            byte = 1
 	stringToKeyUsageSalted            byte = 2
 	stringToKeyUsageIteratedAndSalted byte = 3
 )
 
+// signatureTrailer is included in every binding and certification
+// signature hash preimage.
 var signatureTrailer = []byte{sigPacketVersion, 0xFF}
 
 var (
@@ -46,6 +64,7 @@ var (
 	DefaultStringToKeyHashFunc = HashFuncSHA256
 )
 
+// HashFuncID identifies a hash function within OpenPGP packets.
 type HashFuncID byte
 
 const (
@@ -66,6 +85,7 @@ func (id HashFuncID) New() hash.Hash {
 	return nil
 }
 
+// CipherAlgoID identifies a symmetric encryption algorithm within OpenPGP packets.
 type CipherAlgoID byte
 
 const (
@@ -74,6 +94,8 @@ const (
 	CipherAlgoAES256 CipherAlgoID = 9
 )
 
+// KeyDerivationParameters represents a set of key-derivation parameters included within
+// public key packets. These parameters are included in serialized encryption subkeys.
 type KeyDerivationParameters struct {
 	HashFunction    HashFuncID
 	CipherAlgorithm CipherAlgoID
@@ -94,10 +116,35 @@ func (kdf *KeyDerivationParameters) Encode() []byte {
 type SignatureType byte
 
 const (
+
+	// SignatureTypePositiveCertification indicates the signature intends to certify
+	// that a given public key belongs to a given user identity.
 	SignatureTypePositiveCertification SignatureType = 0x13
-	SignatureTypeSubkeyBinding         SignatureType = 0x18
+
+	// SignatureTypeSubkeyBinding indicates the signature intends to bind a subkey to
+	// a master certification key.
+	SignatureTypeSubkeyBinding SignatureType = 0x18
+
+	// Assorted signature types not used by this library but exported for optional
+	// downstream funcionality extensions.
+	SignatureTypeBinaryDocument         SignatureType = 0x00
+	SignatureTypeTextDocument           SignatureType = 0x01
+	SignatureTypeStandalone             SignatureType = 0x02
+	SignatureTypeGenericCertification   SignatureType = 0x10
+	SignatureTypePersonaCertification   SignatureType = 0x11
+	SignatureTypeCasualCertification    SignatureType = 0x12
+	SignatureTypeAttestedKey            SignatureType = 0x16
+	SignatureTypePrimaryKeyBinding      SignatureType = 0x19
+	SignatureTypeDirectKey              SignatureType = 0x1F
+	SignatureTypeRevocation             SignatureType = 0x20
+	SignatureTypeSubkeyRevocation       SignatureType = 0x28
+	SignatureTypeCertifiationRevocation SignatureType = 0x30
+	SignatureTypeTimestamp              SignatureType = 0x40
+	SignatureTypeThirdPartyConfirmation SignatureType = 0x50
 )
 
+// PacketTag is included in the header of every OpenPGP packet. It indicates
+// the type of OpenPGP packet that follows, and how to decode it.
 type PacketTag byte
 
 const (
@@ -109,6 +156,8 @@ const (
 	PacketTagPublicSubkey PacketTag = 14
 )
 
+// SubpacketType identifies the meaning of a subpacket in an
+// OpenPGP signature packet.
 type SubpacketType byte
 
 const (

@@ -15,14 +15,17 @@ var oidED25519 = []byte{
 	0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01,
 }
 
+// ED25519MasterKey represents an OpenPGP ED25519 EdDSA signing and certification master key.
 type ED25519MasterKey struct {
 	Private  ed25519.PrivateKey
 	Public   ed25519.PublicKey
-	Birthday time.Time
+	Creation time.Time
 	Expiry   time.Time
 }
 
-func NewED25519MasterKey(seed []byte, birthday, expiry time.Time) (*ED25519MasterKey, error) {
+// NewED25519MasterKey derives an ED25519 signing master key from the given 32-byte seed,
+// and sets the given key creation and expiry dates.
+func NewED25519MasterKey(seed []byte, creation, expiry time.Time) (*ED25519MasterKey, error) {
 	if len(seed) != 32 {
 		return nil, fmt.Errorf("unexpected ed25519 seed length %d", len(seed))
 	}
@@ -32,7 +35,7 @@ func NewED25519MasterKey(seed []byte, birthday, expiry time.Time) (*ED25519Maste
 	key := &ED25519MasterKey{
 		Private:  privateKey,
 		Public:   publicKey,
-		Birthday: birthday,
+		Creation: creation,
 		Expiry:   expiry,
 	}
 	return key, nil
@@ -47,7 +50,7 @@ func (key *ED25519MasterKey) encodePublic() []byte {
 	buf.WriteByte(keyPacketVersion)
 
 	// Specify key creation time
-	binary.Write(buf, binary.BigEndian, uint32(key.Birthday.Unix()))
+	binary.Write(buf, binary.BigEndian, uint32(key.Creation.Unix()))
 
 	// ECC-type public key
 	buf.WriteByte(keyAlgorithmEDDSA)
@@ -63,6 +66,7 @@ func (key *ED25519MasterKey) encodePublic() []byte {
 	return buf.Bytes()
 }
 
+// FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
 func (key *ED25519MasterKey) FingerprintV4() []byte {
 	publicKeyPayload := key.encodePublic()
 
@@ -109,14 +113,26 @@ func (key *ED25519MasterKey) EncodePrivatePacket(password []byte) ([]byte, error
 	return EncodePacket(PacketTagSecretKey, buf.Bytes()), nil
 }
 
+// SignatureRequest is the input data needed for an OpenPGP signature.
 type SignatureRequest struct {
+	// HashFunction describes how the final data block should be hashed
+	// to prepare it for EdDSA signing.
 	HashFunction HashFuncID
-	Data         []byte
-	Type         SignatureType
-	Subpackets   []*Subpacket
-	Time         time.Time
+
+	// Data is the arbitrary context-dependent data to be signed.
+	Data []byte
+
+	// Type describes what kind of signature should be made.
+	Type SignatureType
+
+	// Subpackets is a collection of extra data which will be committed
+	// to by the signature.
+	Subpackets []*Subpacket
+	Time       time.Time
 }
 
+// Sign signs the signature request using the EdDSA algorithm on the
+// Edwards 25519 curve.
 func (key *ED25519MasterKey) Sign(req *SignatureRequest) *Signature {
 	fingerprint := key.FingerprintV4()
 	signatureTimestamp := make([]byte, 4)
@@ -160,6 +176,8 @@ func (key *ED25519MasterKey) Sign(req *SignatureRequest) *Signature {
 	return signature
 }
 
+// SelfCertify returns a self-certification signature, needed
+// to prove the key attests to being owned by a given user identifier.
 func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 	publicKeyPayload := key.encodePublic()
 	userIDPayload := userID.Encode()
@@ -190,7 +208,7 @@ func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 
 	if !key.Expiry.IsZero() {
 		expiryTime := make([]byte, 4)
-		binary.BigEndian.PutUint32(expiryTime, uint32(key.Expiry.Sub(key.Birthday).Seconds()))
+		binary.BigEndian.PutUint32(expiryTime, uint32(key.Expiry.Sub(key.Creation).Seconds()))
 		subpackets = append(subpackets, &Subpacket{
 			Type: SubpacketTypeExpiry,
 			Body: expiryTime,
@@ -202,10 +220,11 @@ func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 		Data:         buf.Bytes(),
 		Type:         SignatureTypePositiveCertification,
 		Subpackets:   subpackets,
-		Time:         key.Birthday,
+		Time:         key.Creation,
 	})
 }
 
+// BindSubkey returns a subkey binding signature on the given encryption subkey.
 func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
 	parentPublicPayload := key.encodePublic()
 	subkeyPublicPayload := subkey.encodePublic()
@@ -231,7 +250,7 @@ func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
 
 	if !subkey.Expiry.IsZero() {
 		expiryTime := make([]byte, 4)
-		binary.BigEndian.PutUint32(expiryTime, uint32(subkey.Expiry.Sub(subkey.Birthday).Seconds()))
+		binary.BigEndian.PutUint32(expiryTime, uint32(subkey.Expiry.Sub(subkey.Creation).Seconds()))
 		subpackets = append(subpackets, &Subpacket{
 			Type: SubpacketTypeExpiry,
 			Body: expiryTime,
@@ -243,6 +262,6 @@ func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
 		Data:         buf.Bytes(),
 		Type:         SignatureTypeSubkeyBinding,
 		Subpackets:   subpackets,
-		Time:         subkey.Birthday,
+		Time:         subkey.Creation,
 	})
 }

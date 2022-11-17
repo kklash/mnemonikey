@@ -6,11 +6,15 @@ import (
 	"math/big"
 )
 
+// Subpackets contain extra metadata about the conditions of a signature's
+// assertion, and they may or may not be committed to by the signature,
+// depending on their position within the signature packet.
 type Subpacket struct {
 	Type SubpacketType
 	Body []byte
 }
 
+// Encode returns the binary encoding of the Subpacket.
 func (sp *Subpacket) Encode() []byte {
 	buf := new(bytes.Buffer)
 	buf.Write(packetLengthEncode(len(sp.Body) + 1))
@@ -28,6 +32,7 @@ func encodeSubpackets(subpackets []*Subpacket) []byte {
 	return encoded
 }
 
+// Signature represents an OpenPGP EdDSA signature.
 type Signature struct {
 	HashedSubpackets   []*Subpacket
 	UnhashedSubpackets []*Subpacket
@@ -37,6 +42,9 @@ type Signature struct {
 	R, S               *big.Int
 }
 
+// encodePreimage encodes the signature hash preimage trailer, needed to
+// produce the signature. This does not include the main body of the
+// data to be signed.
 func (signature *Signature) encodePreimage() []byte {
 	buf := new(bytes.Buffer)
 
@@ -58,6 +66,8 @@ func (signature *Signature) encodePreimage() []byte {
 	return buf.Bytes()
 }
 
+// Encode returns the binary encoding of the signature hash preimage trailer
+// and the EdDSA signature value pair (r, s).
 func (signature *Signature) Encode() []byte {
 	buf := new(bytes.Buffer)
 

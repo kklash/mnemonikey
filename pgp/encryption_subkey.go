@@ -15,17 +15,22 @@ var oidCurve25519 = []byte{
 	0x2B, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01,
 }
 
+// Curve25519Subkey represents an OpenPGP X25519 Diffie-Hellman encryption subkey.
 type Curve25519Subkey struct {
 	Private  []byte
 	Public   []byte
-	Birthday time.Time
+	Creation time.Time
 	Expiry   time.Time
 	KDF      *KeyDerivationParameters
 }
 
+// NewCurve25519Subkey derives an X25519 encryption subkey from the given
+// 32-byte seed, and sets the given key creation and expiry dates.
+//
+// If kdfParams is nil, DefaultKDFParameters is used instead.
 func NewCurve25519Subkey(
 	seed []byte,
-	birthday time.Time,
+	creation time.Time,
 	expiry time.Time,
 	kdfParams *KeyDerivationParameters,
 ) (*Curve25519Subkey, error) {
@@ -51,7 +56,7 @@ func NewCurve25519Subkey(
 	key := &Curve25519Subkey{
 		Private:  privateKey,
 		Public:   publicKey,
-		Birthday: birthday,
+		Creation: creation,
 		Expiry:   expiry,
 		KDF:      kdfParams,
 	}
@@ -67,7 +72,7 @@ func (key *Curve25519Subkey) encodePublic() []byte {
 	buf.WriteByte(keyPacketVersion)
 
 	// Specify key creation time
-	binary.Write(buf, binary.BigEndian, uint32(key.Birthday.Unix()))
+	binary.Write(buf, binary.BigEndian, uint32(key.Creation.Unix()))
 
 	// ECC-type public key
 	buf.WriteByte(keyAlgorithmECDH)
