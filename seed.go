@@ -39,6 +39,9 @@ func RandomSeed(random io.Reader, entropyBitCount uint) (*Seed, error) {
 	return NewSeed(entropyInt, entropyBitCount), nil
 }
 
+// Bytes returns the big-endian byte representation of seed.Value. Its length will be:
+//
+//	ceil(seed.EntropyBitCount / 8)
 func (seed *Seed) Bytes() []byte {
 	return seed.Value.FillBytes(make([]byte, (seed.EntropyBitCount+7)/8))
 }
