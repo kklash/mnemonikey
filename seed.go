@@ -25,8 +25,8 @@ func NewSeed(entropyInt *big.Int, entropyBitCount uint) *Seed {
 	}
 }
 
-// RandomSeed generates a random Seed of a given bit size using the given random source.
-func RandomSeed(random io.Reader, entropyBitCount uint) (*Seed, error) {
+// GenerateSeed generates a random Seed of a given bit size using the given random source.
+func GenerateSeed(random io.Reader, entropyBitCount uint) (*Seed, error) {
 	maxSeedInt := new(big.Int).Lsh(bigOne, entropyBitCount)
 	entropyInt, err := rand.Int(random, maxSeedInt)
 	if err != nil {

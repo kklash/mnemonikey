@@ -51,7 +51,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 
 	totalBitCount := mnemonic.BitsPerWord * opts.WordCount
 	seedBitCount := totalBitCount - uint(mnemonikey.BirthdayBitCount)
-	seed, err := mnemonikey.RandomSeed(rand.Reader, seedBitCount)
+	seed, err := mnemonikey.GenerateSeed(rand.Reader, seedBitCount)
 	if err != nil {
 		return err
 	}
