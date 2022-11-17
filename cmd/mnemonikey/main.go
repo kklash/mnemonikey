@@ -15,7 +15,13 @@ var subcommands = map[string]Runner{
 }
 
 var RootCommand = &Command[RootOptions]{
-	Name: "mnemonikey",
+	Name:        "mnemonikey - https://github.com/kklash/mnemonikey",
+	Description: "Deterministically generate and recover OpenPGP keys with BIP39 mnemonic backup phrases.",
+	UsageExamples: []string{
+		"mnemonikey <COMMAND> [help | --help | -h] [OPTIONS]\n",
+		"mnemonikey generate  - Generate a new OpenPGP private key and display its recovery phrase.",
+		"mnemonikey recover   - Recover an OpenPGP private key from a mnemonic recovery phrase.",
+	},
 	Execute: func(_ *RootOptions, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("%w: missing subcommand", ErrPrintUsage)

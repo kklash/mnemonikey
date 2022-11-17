@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 )
 
 var (
@@ -15,17 +16,49 @@ type Runner interface {
 }
 
 type Command[Options any] struct {
-	Name     string
-	AddFlags func(*flag.FlagSet, *Options)
-	Execute  func(flagInput *Options, positionalArgs []string) error
+	Name          string
+	Description   string
+	UsageExamples []string
+	AddFlags      func(*flag.FlagSet, *Options)
+	Execute       func(flagInput *Options, positionalArgs []string) error
 }
 
 func (cmd *Command[Options]) Run(args []string) error {
 	flags := flag.NewFlagSet(cmd.Name, flag.ExitOnError)
+
 	var input Options
 	if cmd.AddFlags != nil {
 		cmd.AddFlags(flags, &input)
 	}
+
+	flags.Usage = func() {
+		out := flags.Output()
+		fmt.Fprintf(out, "%s\n\n", cmd.Name)
+		if cmd.Description != "" {
+			fmt.Fprintf(out, "  %s\n\n", cmd.Description)
+		}
+		if len(cmd.UsageExamples) > 0 {
+			fmt.Fprintf(out, "Usage:\n")
+			for _, line := range cmd.UsageExamples {
+				fmt.Fprintf(out, "  %s\n", line)
+			}
+			fmt.Fprintf(out, "\n")
+		}
+
+		var hasFlags bool
+		flags.VisitAll(func(_ *flag.Flag) { hasFlags = true })
+		if hasFlags {
+			fmt.Fprintf(out, "Options:\n")
+			flags.PrintDefaults()
+			fmt.Println()
+		}
+	}
+
+	if len(args) == 1 && args[0] == "help" {
+		flags.Usage()
+		return nil
+	}
+
 	if err := flags.Parse(args); err != nil {
 		return err
 	}

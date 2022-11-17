@@ -20,17 +20,24 @@ type GenerateOptions struct {
 }
 
 var GenerateCommand = &Command[GenerateOptions]{
-	Name: "mnemonikey generate",
+	Name:        "mnemonikey generate",
+	Description: "Generate a new OpenPGP key and its mnemonic recovery phrase.",
+	UsageExamples: []string{
+		"mnemonikey generate",
+		"mnemonikey generate -name username",
+		"mnemonikey generate -name username -email bob@hotmail.com",
+		"mnemonikey generate -name username -words 20",
+	},
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
-		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier.")
+		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. (optional)")
 		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional)")
 
 		flags.UintVar(
 			&opts.WordCount,
-			"count",
+			"words",
 			mnemonikey.MinMnemonicSize,
 			fmt.Sprintf(
-				"Number of words in the recovery mnemonic. Must be at least %d to be secure. (optional)",
+				"Number of words in the recovery mnemonic.\nMust be at least %d to be secure. (optional)",
 				mnemonikey.MinMnemonicSize,
 			),
 		)
@@ -78,7 +85,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	fmt.Printf("This is the key mnemonic which can be used to deterministically recover the private key:\n\n")
 	printMnemonic(recoveryMnemonic)
 	fmt.Printf("\nSave this phrase in a secure place, preferably offline on paper.\n")
-	fmt.Printf("If you do not save it now, you will never see this phrase again.\n\n")
+	fmt.Printf("If you do not save it now, you will NEVER see this phrase again.\n\n")
 
 	return nil
 }

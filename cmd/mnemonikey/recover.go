@@ -19,13 +19,19 @@ type RecoverOptions struct {
 }
 
 var RecoverCommand = &Command[RecoverOptions]{
-	Name: "mnemonikey recover",
+	Name:        "mnemonikey recover",
+	Description: "Recover an OpenPGP private key from an existing mnemonic recovery phrase.",
+	UsageExamples: []string{
+		"mnemonikey recover",
+		"mnemonikey recover -name myuser",
+		"mnemonikey recover -name myuser -email someone@someplace.com",
+		"mnemonikey recover -words 18",
+		"mnemonikey recover -name myuser -words 18",
+	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
-		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. "+
-			"This must be the same as the name used to originally generate the key.")
-		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional) "+
-			"This must be the same as the email used to originally generate the key.")
-		flags.UintVar(&opts.WordCount, "count", mnemonikey.MinMnemonicSize, "Number of words in the "+
+		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. (optional)")
+		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional)")
+		flags.UintVar(&opts.WordCount, "words", mnemonikey.MinMnemonicSize, "Number of words in the "+
 			"recovery mnemonic. (optional)")
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {
