@@ -14,10 +14,7 @@ import (
 var DefaultName = "anonymous"
 
 type GenerateOptions struct {
-	Name      string
-	Email     string
-	WordCount uint
-	Expiry    string
+	Common GenerateRecoverOptions
 }
 
 var GenerateCommand = &Command[GenerateOptions]{
@@ -33,21 +30,7 @@ var GenerateCommand = &Command[GenerateOptions]{
 		"mnemonikey generate -expiry 1679285000",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
-		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. (optional)")
-		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional)")
-		flags.StringVar(&opts.Expiry, "expiry", "", "Set an expiry period on the generated key.\n"+
-			"Can be a number denominated in days (d) weeks (w) months (m) or years (y) relative to the\n"+
-			"current time, or an absolute unix timestamp number. (optional)")
-
-		flags.UintVar(
-			&opts.WordCount,
-			"words",
-			mnemonikey.MinMnemonicSize,
-			fmt.Sprintf(
-				"Number of words in the recovery mnemonic.\nMust be at least %d to be secure. (optional)",
-				mnemonikey.MinMnemonicSize,
-			),
-		)
+		opts.Common.AddFlags(flags)
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {
 		return generateAndPrintKey(opts)
@@ -55,8 +38,8 @@ var GenerateCommand = &Command[GenerateOptions]{
 }
 
 func generateAndPrintKey(opts *GenerateOptions) error {
-	name := strings.TrimSpace(opts.Name)
-	email := strings.TrimSpace(opts.Email)
+	name := strings.TrimSpace(opts.Common.Name)
+	email := strings.TrimSpace(opts.Common.Email)
 
 	var (
 		creation = time.Now()
@@ -64,18 +47,18 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		err      error
 	)
 
-	if opts.Expiry != "" {
-		expiry, err = parseExpiry(creation, opts.Expiry)
+	if opts.Common.Expiry != "" {
+		expiry, err = parseExpiry(creation, opts.Common.Expiry)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
 	}
 
-	if opts.WordCount < mnemonikey.MinMnemonicSize {
-		return fmt.Errorf("%w: invalid word count %d", ErrPrintUsage, opts.WordCount)
+	if opts.Common.WordCount < mnemonikey.MinMnemonicSize {
+		return fmt.Errorf("%w: invalid word count %d", ErrPrintUsage, opts.Common.WordCount)
 	}
 
-	seed, err := mnemonikey.GenerateSeed(rand.Reader, opts.WordCount)
+	seed, err := mnemonikey.GenerateSeed(rand.Reader, opts.Common.WordCount)
 	if err != nil {
 		return err
 	}
@@ -95,15 +78,19 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	fmt.Printf("Generated OpenPGP private key with %d bits of entropy:\n\n%s\n\n\n", seed.EntropyBitCount, pgpArmorKey)
+	fmt.Printf("Generated OpenPGP private key with %d bits of entropy:\n\n", seed.EntropyBitCount)
+	fmt.Print(magenta(pgpArmorKey) + "\n\n")
 
 	// TODO print debug info about key
-	// TODO print in color
 
-	fmt.Printf("This is the key mnemonic which can be used to recover the private key:\n\n")
+	fmt.Print("This is the mnemonic phrase which can be used to recover the private key:\n\n")
 	printMnemonic(recoveryMnemonic)
-	fmt.Printf("\nSave this phrase in a secure place, preferably offline on paper.\n")
-	fmt.Printf("If you do not save it now, you will NEVER see this phrase again.\n\n")
+	fmt.Print("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
+	fmt.Print(
+		underline(
+			"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
+		),
+	)
 
 	return nil
 }
@@ -112,6 +99,6 @@ func printMnemonic(words []string) {
 	for i, word := range words {
 		humanIndex := strconv.Itoa(i + 1)
 		spacing := strings.Repeat(" ", 4-len(humanIndex))
-		fmt.Printf("%s:%s%s\n", humanIndex, spacing, word)
+		fmt.Printf("%s:%s%s\n", humanIndex, spacing, bold(magenta((word))))
 	}
 }

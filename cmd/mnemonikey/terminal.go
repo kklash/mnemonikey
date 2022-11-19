@@ -1,5 +1,12 @@
 package main
 
+import (
+	"os"
+	"strings"
+
+	"golang.org/x/term"
+)
+
 const (
 	// ANSI escape code
 	escapeCode = "\033"
@@ -38,3 +45,54 @@ func green(s string) string   { return escapeCode + "[32m" + s + escapeCode + "[
 func blue(s string) string    { return escapeCode + "[34m" + s + escapeCode + "[39m" }
 func magenta(s string) string { return escapeCode + "[35m" + s + escapeCode + "[39m" }
 func cyan(s string) string    { return escapeCode + "[36m" + s + escapeCode + "[39m" }
+
+const (
+	defaultWidth               = 75
+	defaultHeight              = 30
+	flagSetOptionDefaultIndent = 8
+)
+
+// Layout
+func getTerminalSize() (width, height int) {
+	width, height, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		return defaultWidth, defaultHeight
+	}
+	return width, height
+}
+
+func justifyWidth(indent, width int, text string) string {
+	maxWidth := indent + width
+
+	indentString := strings.Repeat(" ", indent)
+
+	words := strings.Split(text, " ")
+	lines := make([]string, 0, len(text)/(indent+width)+1)
+
+	for len(words) > 0 {
+		line := indentString
+		for len(words) > 0 && len(line)+len(words[0])+1 <= maxWidth {
+			if line != indentString {
+				line += " "
+			}
+			line += words[0]
+			words = words[1:]
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func justifyTerminalWidth(indent int, text string) string {
+	// Take up at most 80% of the terminal width
+	termWidth, _ := getTerminalSize()
+	maxWidth := termWidth * 4 / 5
+	return justifyWidth(indent, maxWidth, text)
+}
+
+func justifyOptionDescription(description string) string {
+	// Take up at most 80% of the terminal width
+	termWidth, _ := getTerminalSize()
+	maxWidth := (termWidth - flagSetOptionDefaultIndent) * 4 / 5
+	return justifyWidth(0, maxWidth, description)
+}

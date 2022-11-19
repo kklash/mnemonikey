@@ -35,7 +35,7 @@ func (cmd *Command[Options]) Run(args []string) error {
 		out := flags.Output()
 		fmt.Fprintf(out, "%s\n\n", cmd.Name)
 		if cmd.Description != "" {
-			fmt.Fprintf(out, "  %s\n\n", cmd.Description)
+			fmt.Fprintf(out, "%s\n\n", justifyTerminalWidth(2, cmd.Description))
 		}
 		if len(cmd.UsageExamples) > 0 {
 			fmt.Fprintf(out, "Usage:\n")
@@ -65,6 +65,9 @@ func (cmd *Command[Options]) Run(args []string) error {
 	if err := cmd.Execute(&input, flags.Args()); err != nil {
 		if errors.Is(err, ErrPrintUsage) {
 			flags.Usage()
+
+			// avoid multiple parent Commands printing usage messages too
+			return errors.New(err.Error())
 		}
 		return err
 	}

@@ -10,10 +10,7 @@ import (
 )
 
 type RecoverOptions struct {
-	Name        string
-	Email       string
-	WordCount   uint
-	Expiry      string
+	Common      GenerateRecoverOptions
 	SimpleInput bool
 }
 
@@ -32,16 +29,18 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover -simple -name myuser",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
-		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. (optional)")
-		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional)")
-		flags.BoolVar(&opts.SimpleInput, "simple", false, "Revert to a simpler terminal input mechanism "+
-			"for entering the recovery phrase. Useful if the fancy terminal manipulation used by the default input "+
-			"mode doesn't work on your system. (optional)")
-		flags.UintVar(&opts.WordCount, "words", mnemonikey.MinMnemonicSize, "Number of words in the "+
-			"recovery mnemonic. (optional)")
-		flags.StringVar(&opts.Expiry, "expiry", "", "Set an expiry period on the recovered key.\n"+
-			"Can be a number denominated in days (d) weeks (w) months (m) or years (y) relative to the\n"+
-			"current time, or an absolute unix timestamp number. (optional)")
+		opts.Common.AddFlags(flags)
+
+		flags.BoolVar(
+			&opts.SimpleInput,
+			"simple",
+			false,
+			justifyOptionDescription(
+				"Revert to a simpler terminal input mechanism for entering the recovery "+
+					"phrase. Useful if the fancy terminal manipulation used by the default "+
+					"input mode doesn't work on your system. (optional)",
+			),
+		)
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {
 		return recoverAndPrintKey(opts)
@@ -49,25 +48,29 @@ var RecoverCommand = &Command[RecoverOptions]{
 }
 
 func recoverAndPrintKey(opts *RecoverOptions) error {
-	name := strings.TrimSpace(opts.Name)
-	email := strings.TrimSpace(opts.Email)
+	name := strings.TrimSpace(opts.Common.Name)
+	email := strings.TrimSpace(opts.Common.Email)
 
 	var (
 		expiry time.Time
 		err    error
 	)
-	if opts.Expiry != "" {
-		expiry, err = parseExpiry(time.Now(), opts.Expiry)
+	if opts.Common.Expiry != "" {
+		expiry, err = parseExpiry(time.Now(), opts.Common.Expiry)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
 	}
 
+	if opts.Common.WordCount < mnemonikey.MinMnemonicSize {
+		return fmt.Errorf("%w: invalid word count %d", ErrPrintUsage, opts.Common.WordCount)
+	}
+
 	var words []string
 	if opts.SimpleInput {
-		words, err = userInputMnemonicSimple(opts.WordCount)
+		words, err = userInputMnemonicSimple(opts.Common.WordCount)
 	} else {
-		words, err = userInputMnemonic(opts.WordCount)
+		words, err = userInputMnemonic(opts.Common.WordCount)
 	}
 	if err != nil {
 		return err
