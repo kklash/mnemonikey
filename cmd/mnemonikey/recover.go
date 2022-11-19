@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,10 +10,11 @@ import (
 )
 
 type RecoverOptions struct {
-	Name      string
-	Email     string
-	WordCount uint
-	Expiry    string
+	Name        string
+	Email       string
+	WordCount   uint
+	Expiry      string
+	SimpleInput bool
 }
 
 var RecoverCommand = &Command[RecoverOptions]{
@@ -31,10 +29,14 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover -expiry 2y",
 		"mnemonikey recover -expiry 17w",
 		"mnemonikey recover -expiry 1679285000",
+		"mnemonikey recover -simple -name myuser",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
 		flags.StringVar(&opts.Name, "name", DefaultName, "Display name for the PGP key user identifier. (optional)")
 		flags.StringVar(&opts.Email, "email", "", "Email for the PGP key user identifier. (optional)")
+		flags.BoolVar(&opts.SimpleInput, "simple", false, "Revert to a simpler terminal input mechanism "+
+			"for entering the recovery phrase. Useful if the fancy terminal manipulation used by the default input "+
+			"mode doesn't work on your system. (optional)")
 		flags.UintVar(&opts.WordCount, "words", mnemonikey.MinMnemonicSize, "Number of words in the "+
 			"recovery mnemonic. (optional)")
 		flags.StringVar(&opts.Expiry, "expiry", "", "Set an expiry period on the recovered key.\n"+
@@ -61,7 +63,12 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		}
 	}
 
-	words, err := userInputMnemonic(opts.WordCount)
+	var words []string
+	if opts.SimpleInput {
+		words, err = userInputMnemonicSimple(opts.WordCount)
+	} else {
+		words, err = userInputMnemonic(opts.WordCount)
+	}
 	if err != nil {
 		return err
 	}
@@ -78,39 +85,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 
 	// TODO print debug data about derived key, Key ID, etc.
 	fmt.Printf("Re-derived the following OpenPGP key:\n\n")
-	fmt.Println(pgpArmorKey)
+	fmt.Println(bold(magenta(pgpArmorKey)))
 
 	return nil
-}
-
-func userInputMnemonic(wordCount uint) ([]string, error) {
-	words := make([]string, wordCount)
-	scanner := bufio.NewScanner(os.Stdin)
-
-	fmt.Printf("Enter the words of your recovery mnemonic in sequence.\n\n")
-
-	// Establish vertical space early to avoid jitter after the first word.
-	fmt.Print("\n\033[F")
-
-	for i := uint(0); i < wordCount; i++ {
-		humanIndex := strconv.Itoa(int(i) + 1)
-		prompt := fmt.Sprintf("Please enter mnemonic word %s >> ", humanIndex)
-
-		fmt.Print(prompt)
-		if !scanner.Scan() {
-			fmt.Printf("\n\n")
-			return nil, fmt.Errorf("unexpected EOF on standard input")
-		}
-		wordInput := scanner.Text()
-
-		// Up to start of previous line
-		fmt.Print("\033[F")
-
-		// Wipe previous line from terminal
-		fmt.Print(strings.Repeat(" ", len(prompt)+len(wordInput)) + "\r")
-
-		words[i] = strings.TrimSpace(wordInput)
-	}
-
-	return words, nil
 }
