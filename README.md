@@ -32,3 +32,7 @@ To use `mnemonikey` as a Golang library:
 ```
 $ go get -u github.com/kklash/mnemonikey
 ```
+
+## Acknowledgements
+
+Thanks to Chris Wellons (@skeeto) and [his awesome tool, `passphrase2pgp`](https://github.com/skeeto/passphrase2pgp) for inspiring me, and serving as a helpful reference for how PGP keys are serialized into packets.
