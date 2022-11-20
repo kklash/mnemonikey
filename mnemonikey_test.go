@@ -69,7 +69,7 @@ func TestDeterministicKeyPair(t *testing.T) {
 	name := "username"
 	email := "user@domain.com"
 	now := time.Unix(1668576000, 0)
-	fingerprint := "838FB4440FBEBD979915C2EB8F54177D639612EA"
+	fingerprint := "9847B24815FE1DC961518434384480A0CE05A007"
 
 	keyPair, err := NewDeterministicKeyPair(seed, name, email, now, time.Time{})
 	if err != nil {

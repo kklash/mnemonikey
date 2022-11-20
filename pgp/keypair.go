@@ -10,6 +10,10 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+// KeyExpandInfo is the string used as the 'info' parameter to the
+// HDKF-Expand function when generating a key pair.
+const KeyExpandInfo = "mnemonikey"
+
 // KeyPair represents a PGP signing and encryption key pair with an associated user identifier.
 type KeyPair struct {
 	UserID           *UserID
@@ -17,8 +21,9 @@ type KeyPair struct {
 	EncryptionSubkey *Curve25519Subkey
 }
 
-// NewKeyPair derives a ED25519 and X25519 key pair from the given seed using
-// the HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
+// NewKeyPair derives a ED25519 and X25519 key pair by expanding the given seed
+// using the HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
+//
 // For safety, seed must be at least 16 bytes long to ensure security of the
 // derived keys.
 //
@@ -28,7 +33,7 @@ func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPa
 	if len(seed) < 16 {
 		return nil, fmt.Errorf("seed of size %d is too small to be secure", len(seed))
 	}
-	keyReader := hkdf.New(sha256.New, seed, nil, nil)
+	keyReader := hkdf.Expand(sha256.New, seed, []byte(KeyExpandInfo))
 
 	masterKeySeed := make([]byte, 32)
 	if _, err := io.ReadFull(keyReader, masterKeySeed); err != nil {
