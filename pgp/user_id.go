@@ -12,6 +12,9 @@ func (id *UserID) Encode() []byte {
 	if id.Email == "" {
 		return []byte(id.Name)
 	}
+	if id.Name == "" {
+		return []byte(id.Email)
+	}
 
 	return []byte(fmt.Sprintf("%s <%s>", id.Name, id.Email))
 }
