@@ -18,7 +18,7 @@ type KeyPair struct {
 }
 
 // NewKeyPair derives a ED25519 and X25519 key pair from the given seed using
-// the Hash-based Key Derivation Function (defined in RFC-5869) with SHA256.
+// the HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
 // For safety, seed must be at least 16 bytes long to ensure security of the
 // derived keys.
 //
