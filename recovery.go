@@ -8,7 +8,7 @@ import (
 	"github.com/kklash/mnemonikey/mnemonic"
 )
 
-// RecoverKeyPair decodes a seed and birthday from the given recovery mnemonic and
+// RecoverKeyPair decodes a seed and creation offset from the given recovery mnemonic and
 // re-derives its child PGP key.
 //
 // The given name and email must be the same as was used to originally generate the key,
@@ -18,12 +18,12 @@ import (
 // then simply provide the entire user ID as the name parameter, and leave the email parameter
 // empty.
 func RecoverKeyPair(words []string, name, email string, expiry time.Time) (*DeterministicKeyPair, error) {
-	seed, birthday, err := DecodeMnemonic(words)
+	seed, creationOffset, err := DecodeMnemonic(words)
 	if err != nil {
 		return nil, err
 	}
 
-	keyPair, err := NewDeterministicKeyPair(seed, name, email, birthday, expiry)
+	keyPair, err := NewDeterministicKeyPair(seed, name, email, creationOffset, expiry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to recover key pair from decoded mnemonic: %w", err)
 	}
@@ -32,8 +32,8 @@ func RecoverKeyPair(words []string, name, email string, expiry time.Time) (*Dete
 }
 
 // DecodeMnemonic decodes a recovery mnemonic into the embedded Seed data
-// and key birthday.
-func DecodeMnemonic(words []string) (seed *Seed, birthday time.Time, err error) {
+// and key creation timestamp.
+func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) {
 	indices, err := mnemonic.DecodeMnemonic(words)
 	if err != nil {
 		return
@@ -44,13 +44,13 @@ func DecodeMnemonic(words []string) (seed *Seed, birthday time.Time, err error) 
 		return
 	}
 
-	// Determine key birthday from lowest trailing BirthdayBitCount bits
-	birthdayOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<BirthdayBitCount)-1))).Int64()
-	birthday = EpochStart.Add(time.Duration(birthdayOffset) * EpochIncrement)
-	payloadInt.Rsh(payloadInt, BirthdayBitCount)
+	// Determine key creation time from lowest trailing CreationOffsetBitCount bits
+	creationOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<CreationOffsetBitCount)-1))).Int64()
+	creation = EpochStart.Add(time.Duration(creationOffset) * EpochIncrement)
+	payloadInt.Rsh(payloadInt, CreationOffsetBitCount)
 
 	// Remaining bits are all seed data
-	seedEntropyBitCount := uint(len(words))*mnemonic.BitsPerWord - BirthdayBitCount
+	seedEntropyBitCount := uint(len(words))*mnemonic.BitsPerWord - CreationOffsetBitCount
 	seed = NewSeed(payloadInt, seedEntropyBitCount)
 
 	return
