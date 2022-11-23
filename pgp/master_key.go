@@ -200,9 +200,11 @@ func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 			Body: []byte{keyFlagCertify | keyFlagSign},
 		},
 		{
-			// TODO do we need this subpacket?
+			// Enable MDC. "AEAD encryption or a Modification Detection Code (MDC)
+			// MUST be used anytime the symmetric key is protected by ECDH."
+			// https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-ec-dh-algorithm-ecdh
 			Type: SubpacketTypeFeatures,
-			Body: []byte{1}, // Enable MDC
+			Body: []byte{1},
 		},
 	}
 
