@@ -2,6 +2,7 @@ package mnemonikey
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -69,7 +70,7 @@ func TestDeterministicKeyPair(t *testing.T) {
 	name := "username"
 	email := "user@domain.com"
 	now := time.Unix(1668576000, 0)
-	fingerprint := "E52794F832A4164294DB4900997D053ED2547002"
+	fingerprint := "FE4327E47DFC189120437CA59EC88AAE8DE963F8"
 
 	keyPair, err := NewDeterministicKeyPair(seed, name, email, now, time.Time{})
 	if err != nil {
@@ -156,6 +157,15 @@ func TestDeterministicKeyPair(t *testing.T) {
 
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Fatalf("decrypted message doesn't match\nWanted %q\nGot    %q", plaintext, decrypted)
+		}
+	})
+
+	t.Run("checksum in recovery phrase detects errors", func(t *testing.T) {
+		wordsBad := append([]string{}, words...)
+		wordsBad[4] = "hurt"
+
+		if _, err := RecoverKeyPair(wordsBad, name, email, time.Time{}); !errors.Is(err, ErrInvalidChecksum) {
+			t.Fatalf("expected to get ErrInvalidChecksum when mnemonic was corrupted, got: %s", err)
 		}
 	})
 }

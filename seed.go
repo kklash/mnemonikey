@@ -29,7 +29,7 @@ func NewSeed(entropyInt *big.Int, entropyBitCount uint) *Seed {
 
 // GenerateSeed generates a random Seed of a given bit size using the given random source.
 func GenerateSeed(random io.Reader, wordCount uint) (*Seed, error) {
-	entropyBitCount := wordCount*mnemonic.BitsPerWord - CreationOffsetBitCount
+	entropyBitCount := wordCount*mnemonic.BitsPerWord - CreationOffsetBitCount - ChecksumBitCount
 
 	maxSeedInt := new(big.Int).Lsh(bigOne, entropyBitCount)
 	entropyInt, err := rand.Int(random, maxSeedInt)

@@ -1,12 +1,18 @@
 package mnemonikey
 
 import (
+	"errors"
 	"fmt"
+	"hash/crc32"
 	"math/big"
 	"time"
 
 	"github.com/kklash/mnemonikey/mnemonic"
 )
+
+// ErrInvalidChecksum is returned when decoding a mnemonic fails due
+// to a checksum mismatch.
+var ErrInvalidChecksum = errors.New("failed to validate checksum embedded in mnemonic phrase")
 
 // RecoverKeyPair decodes a seed and creation offset from the given recovery mnemonic and
 // re-derives its child PGP key.
@@ -44,13 +50,26 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 		return
 	}
 
-	// Determine key creation time from lowest trailing CreationOffsetBitCount bits
-	creationOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<CreationOffsetBitCount)-1))).Int64()
+	// Shift off checksum from lowest-order ChecksumBitCount bits
+	expectedChecksum := uint32(new(big.Int).And(payloadInt, big.NewInt(int64((1<<ChecksumBitCount)-1))).Uint64())
+	payloadInt.Rsh(payloadInt, ChecksumBitCount)
+
+	// Confirm checksum is correct.
+	payloadBitCount := mnemonic.BitsPerWord*uint(len(words)) - ChecksumBitCount
+	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
+	checksum := ^crc32.Checksum(payloadBytes, checksumTable)
+	if checksum != expectedChecksum {
+		err = ErrInvalidChecksum
+		return
+	}
+
+	// Determine key creation time from next lowest-order CreationOffsetBitCount bits
+	creationOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<CreationOffsetBitCount)-1))).Uint64()
 	creation = EpochStart.Add(time.Duration(creationOffset) * EpochIncrement)
 	payloadInt.Rsh(payloadInt, CreationOffsetBitCount)
 
 	// Remaining bits are all seed data
-	seedEntropyBitCount := uint(len(words))*mnemonic.BitsPerWord - CreationOffsetBitCount
+	seedEntropyBitCount := payloadBitCount - CreationOffsetBitCount
 	seed = NewSeed(payloadInt, seedEntropyBitCount)
 
 	return
