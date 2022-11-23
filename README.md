@@ -4,8 +4,7 @@ _Determinstic backup and recovery of PGP keys using human-readable phrases._
 
 |Generation|Recovery|
 |----------|--------|
-|![generate](https://user-images.githubusercontent.com/31221309/202872648-77a7320a-b324-464a-84b1-767724f20b59.gif)|![recover](https://user-images.githubusercontent.com/31221309/202872652-62a68338-686f-4fff-aafa-a05818b394b3.gif)|
-
+|![generate](https://user-images.githubusercontent.com/31221309/203456176-11f3c80e-1095-4f58-adcc-d4a62aa363dd.gif)|![recover](https://user-images.githubusercontent.com/31221309/203456179-b1f87358-6acd-42c3-80da-2d8e8fa9b86b.gif)|
 
 Mnemonikey allows you to back up your PGP keys without managing highly sensitive and awkward digital files, and without any loss of security.
 
