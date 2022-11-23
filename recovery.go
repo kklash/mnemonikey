@@ -44,7 +44,7 @@ func DecodeMnemonic(words []string) (seed *Seed, birthday time.Time, err error) 
 		return
 	}
 
-	// Determine key birthday from lowest trailing 15 bits
+	// Determine key birthday from lowest trailing BirthdayBitCount bits
 	birthdayOffset := new(big.Int).And(payloadInt, big.NewInt(int64((1<<BirthdayBitCount)-1))).Int64()
 	birthday = EpochStart.Add(time.Duration(birthdayOffset) * EpochIncrement)
 	payloadInt.Rsh(payloadInt, BirthdayBitCount)
