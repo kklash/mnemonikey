@@ -8,6 +8,8 @@ _Determinstic backup and recovery of PGP keys using human-readable phrases._
 
 Mnemonikey allows you to back up your PGP keys without managing highly sensitive and awkward digital files, without any loss of security.
 
+Mnemonikey determinstically derives a full set of PGP keys based on a secure, randomly generated seed. That seed (and the key creation timestamp) is then re-exported in the form of an English phrase which you can record on paper to fully back up your PGP key. The recovery phrase is encoded similarly to [how Bitcoin wallets are backed up](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki), and even uses the same word list for better cross-compatibility (although the number of words in a Mnemonikey recovery phrase is different).
+
 ## PGP Key Backup Alternatives
 
 |Backup Format|Secure|Memorizable|Offline|Robust|
@@ -133,6 +135,7 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
 
 - PGP keys and signature packets must be encoded with the OpenPGP version 4 format.
 - Key derivation parameters should be set to SHA-256 and AES-256.
+    - SHA-256 and AES-256 are also set as hash and cipher preferences in the self-certification signature.
 - The master key must be configured with Sign + Certify flags. Its algorithm must be set to EDDSA (`22`).
 - The encryption subkey must be configured with Encrypt-Communications (`0x04`) Encrypt-Storage (`0x08`) flags. Its algorithm must be set to ECDH (`18`)
 - The self-certification signature must use a positive-certification signature type (`0x13`).

@@ -161,10 +161,14 @@ const (
 type SubpacketType byte
 
 const (
-	SubpacketTypeCreationTime      SubpacketType = 2
-	SubpacketTypeExpiry            SubpacketType = 9
-	SubpacketTypeIssuer            SubpacketType = 16
-	SubpacketTypeKeyFlags          SubpacketType = 27
-	SubpacketTypeFeatures          SubpacketType = 30
-	SubpacketTypeIssuerFingerprint SubpacketType = 33
+	SubpacketTypeCreationTime                   SubpacketType = 2
+	SubpacketTypeExpiry                         SubpacketType = 9
+	SubpacketTypePreferredCipherAlgorithms      SubpacketType = 11
+	SubpacketTypeIssuer                         SubpacketType = 16
+	SubpacketTypePreferredHashAlgorithms        SubpacketType = 21
+	SubpacketTypePreferredCompressionAlgorithms SubpacketType = 22
+	SubpacketTypeKeyFlags                       SubpacketType = 27
+	SubpacketTypeFeatures                       SubpacketType = 30
+	SubpacketTypeIssuerFingerprint              SubpacketType = 33
+	SubpacketTypePreferredAEADAlgorithms        SubpacketType = 34
 )

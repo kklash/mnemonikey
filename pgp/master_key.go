@@ -143,7 +143,14 @@ func (key *ED25519MasterKey) Sign(req *SignatureRequest) *Signature {
 
 // SelfCertify returns a self-certification signature, needed
 // to prove the key attests to being owned by a given user identifier.
-func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
+func (key *ED25519MasterKey) SelfCertify(
+	userID *UserID,
+	kdfParams *KeyDerivationParameters,
+) *Signature {
+	if kdfParams == nil {
+		kdfParams = DefaultKDFParameters
+	}
+
 	publicKeyPayload := key.base.encodePublic()
 	userIDPayload := userID.Encode()
 
@@ -163,6 +170,14 @@ func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 		{
 			Type: SubpacketTypeKeyFlags,
 			Body: []byte{keyFlagCertify | keyFlagSign},
+		},
+		{
+			Type: SubpacketTypePreferredCipherAlgorithms,
+			Body: []byte{byte(kdfParams.CipherAlgorithm)},
+		},
+		{
+			Type: SubpacketTypePreferredHashAlgorithms,
+			Body: []byte{byte(kdfParams.HashFunction)},
 		},
 		{
 			// Enable MDC. "AEAD encryption or a Modification Detection Code (MDC)

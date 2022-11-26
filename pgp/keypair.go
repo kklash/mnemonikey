@@ -79,7 +79,8 @@ func (keyPair *KeyPair) EncodePackets(password []byte) ([]byte, error) {
 	buf.Write(keyPair.UserID.EncodePacket())
 
 	// Self-certification signature for the master key
-	buf.Write(keyPair.MasterKey.SelfCertify(keyPair.UserID).EncodePacket())
+	selfCertSig := keyPair.MasterKey.SelfCertify(keyPair.UserID, keyPair.EncryptionSubkey.KDF)
+	buf.Write(selfCertSig.EncodePacket())
 
 	// Encryption subkey
 	encryptionSubkeyPacket, err := keyPair.EncryptionSubkey.EncodePrivatePacket(password)
