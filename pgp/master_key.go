@@ -169,7 +169,7 @@ func (key *ED25519MasterKey) SelfCertify(
 	subpackets := []*Subpacket{
 		{
 			Type: SubpacketTypeKeyFlags,
-			Body: []byte{keyFlagCertify | keyFlagSign},
+			Body: []byte{keyFlagCertify},
 		},
 		{
 			Type: SubpacketTypePreferredCipherAlgorithms,
@@ -207,9 +207,13 @@ func (key *ED25519MasterKey) SelfCertify(
 }
 
 // BindSubkey returns a subkey binding signature on the given encryption subkey.
-func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
+func (key *ED25519MasterKey) BindSubkey(
+	subkeyBase *ellipticCurveKey,
+	keyFlags byte,
+	expiry time.Time,
+) *Signature {
 	parentPublicPayload := key.base.encodePublic()
-	subkeyPublicPayload := subkey.base.encodePublic()
+	subkeyPublicPayload := subkeyBase.encodePublic()
 
 	buf := new(bytes.Buffer)
 
@@ -226,13 +230,13 @@ func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
 	subpackets := []*Subpacket{
 		{
 			Type: SubpacketTypeKeyFlags,
-			Body: []byte{keyFlagEncryptCommunications | keyFlagEncryptStorage},
+			Body: []byte{keyFlags},
 		},
 	}
 
-	if !subkey.Expiry.IsZero() {
+	if !expiry.IsZero() {
 		expiryTime := make([]byte, 4)
-		binary.BigEndian.PutUint32(expiryTime, uint32(subkey.Expiry.Sub(subkey.Creation).Seconds()))
+		binary.BigEndian.PutUint32(expiryTime, uint32(expiry.Sub(subkeyBase.Creation).Seconds()))
 		subpackets = append(subpackets, &Subpacket{
 			Type: SubpacketTypeExpiry,
 			Body: expiryTime,
@@ -244,6 +248,6 @@ func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
 		Data:         buf.Bytes(),
 		Type:         SignatureTypeSubkeyBinding,
 		Subpackets:   subpackets,
-		Time:         subkey.Creation,
+		Time:         subkeyBase.Creation,
 	})
 }

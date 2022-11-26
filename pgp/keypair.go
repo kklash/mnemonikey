@@ -16,9 +16,11 @@ const KeyExpandInfo = "mnemonikey"
 
 // KeyPair represents a PGP signing and encryption key pair with an associated user identifier.
 type KeyPair struct {
-	UserID           *UserID
-	MasterKey        *ED25519MasterKey
-	EncryptionSubkey *Curve25519Subkey
+	UserID               *UserID
+	MasterKey            *ED25519MasterKey
+	EncryptionSubkey     *Curve25519Subkey
+	AuthenticationSubkey *ED25519Subkey
+	SigningSubkey        *ED25519Subkey
 }
 
 // NewKeyPair derives a ED25519 and X25519 key pair by expanding the given seed
@@ -44,19 +46,39 @@ func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPa
 		return nil, err
 	}
 
-	subkeySeed := make([]byte, 32)
-	if _, err := io.ReadFull(keyReader, subkeySeed); err != nil {
+	encryptionSubkeySeed := make([]byte, 32)
+	if _, err := io.ReadFull(keyReader, encryptionSubkeySeed); err != nil {
 		return nil, fmt.Errorf("failed to derive encryption subkey from seed: %w", err)
 	}
-	encryptionSubkey, err := NewCurve25519Subkey(subkeySeed, creation, expiry, nil)
+	encryptionSubkey, err := NewCurve25519Subkey(encryptionSubkeySeed, creation, expiry, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	authenticationSubkeySeed := make([]byte, 32)
+	if _, err := io.ReadFull(keyReader, authenticationSubkeySeed); err != nil {
+		return nil, fmt.Errorf("failed to derive authentication subkey from seed: %w", err)
+	}
+	authenticationSubkey, err := NewED25519Subkey(authenticationSubkeySeed, creation, expiry)
+	if err != nil {
+		return nil, err
+	}
+
+	signingSubkeySeed := make([]byte, 32)
+	if _, err := io.ReadFull(keyReader, signingSubkeySeed); err != nil {
+		return nil, fmt.Errorf("failed to derive signing subkey from seed: %w", err)
+	}
+	signingSubkey, err := NewED25519Subkey(signingSubkeySeed, creation, expiry)
 	if err != nil {
 		return nil, err
 	}
 
 	keyPair := &KeyPair{
-		UserID:           userID,
-		MasterKey:        masterKey,
-		EncryptionSubkey: encryptionSubkey,
+		UserID:               userID,
+		MasterKey:            masterKey,
+		EncryptionSubkey:     encryptionSubkey,
+		AuthenticationSubkey: authenticationSubkey,
+		SigningSubkey:        signingSubkey,
 	}
 	return keyPair, nil
 }
@@ -89,8 +111,43 @@ func (keyPair *KeyPair) EncodePackets(password []byte) ([]byte, error) {
 	}
 	buf.Write(encryptionSubkeyPacket)
 
-	// Subkey binding signature
-	buf.Write(keyPair.MasterKey.BindSubkey(keyPair.EncryptionSubkey).EncodePacket())
+	// Encryption subkey binding signature
+	encSubkeyBindSig := keyPair.MasterKey.BindSubkey(
+		keyPair.EncryptionSubkey.base,
+		keyFlagEncryptCommunications|keyFlagEncryptStorage,
+		keyPair.EncryptionSubkey.Expiry,
+	)
+	buf.Write(encSubkeyBindSig.EncodePacket())
+
+	// Authentication subkey
+	authenticationSubkeyPacket, err := keyPair.AuthenticationSubkey.EncodePrivatePacket(password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode authentication subkey packet: %w", err)
+	}
+	buf.Write(authenticationSubkeyPacket)
+
+	// Authentication subkey binding signature
+	authSubkeyBindSig := keyPair.MasterKey.BindSubkey(
+		keyPair.AuthenticationSubkey.base,
+		keyFlagAuthenticate,
+		keyPair.AuthenticationSubkey.Expiry,
+	)
+	buf.Write(authSubkeyBindSig.EncodePacket())
+
+	// Signing subkey
+	signingSubkeyPacket, err := keyPair.SigningSubkey.EncodePrivatePacket(password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode signing subkey packet: %w", err)
+	}
+	buf.Write(signingSubkeyPacket)
+
+	// Signing subkey binding signature
+	signSubkeyBindSig := keyPair.MasterKey.BindSubkey(
+		keyPair.SigningSubkey.base,
+		keyFlagSign,
+		keyPair.SigningSubkey.Expiry,
+	)
+	buf.Write(signSubkeyBindSig.EncodePacket())
 
 	return buf.Bytes(), nil
 }
