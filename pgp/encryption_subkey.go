@@ -1,10 +1,7 @@
 package pgp
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"math/big"
 	"time"
 
 	"golang.org/x/crypto/curve25519"
@@ -17,6 +14,7 @@ var oidCurve25519 = []byte{
 
 // Curve25519Subkey represents an OpenPGP X25519 Diffie-Hellman encryption subkey.
 type Curve25519Subkey struct {
+	base     *ellipticCurveKey
 	Private  []byte
 	Public   []byte
 	Creation time.Time
@@ -54,6 +52,18 @@ func NewCurve25519Subkey(
 	}
 
 	key := &Curve25519Subkey{
+		base: &ellipticCurveKey{
+			// package curve25519 represents private keys with little-endian byte slices.
+			// reverse this number before exporting to ensure it is interpreted correctly
+			// by OpenPGP software, which uses big-endian representations.
+			Private: reverse(privateKey),
+
+			Public:          publicKey,
+			Creation:        creation,
+			Algorithm:       keyAlgorithmECDH,
+			CurveOID:        oidCurve25519,
+			ExtraPublicData: kdfParams.Encode(),
+		},
 		Private:  privateKey,
 		Public:   publicKey,
 		Creation: creation,
@@ -63,68 +73,18 @@ func NewCurve25519Subkey(
 	return key, nil
 }
 
-// encodePublic encodes the public key into a serialized payload suitable for
-// use in a packet payload.
-func (key *Curve25519Subkey) encodePublic() []byte {
-	buf := new(bytes.Buffer)
-
-	// Packet version
-	buf.WriteByte(keyPacketVersion)
-
-	// Specify key creation time
-	binary.Write(buf, binary.BigEndian, uint32(key.Creation.Unix()))
-
-	// ECC-type public key
-	buf.WriteByte(keyAlgorithmECDH)
-
-	// Specify which curve the key uses
-	buf.WriteByte(byte(len(oidCurve25519)))
-	buf.Write(oidCurve25519)
-
-	// MPI-encoding of public key point
-	publicKeyMPI := EncodeMPI(new(big.Int).SetBytes(append([]byte{mpiPrefixEddsaPoint}, key.Public...)))
-	buf.Write(publicKeyMPI)
-
-	// KDF parameters
-	buf.Write(key.KDF.Encode())
-
-	return buf.Bytes()
-}
-
 // EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
 func (key *Curve25519Subkey) EncodePublicSubkeyPacket() []byte {
-	return EncodePacket(PacketTagPublicSubkey, key.encodePublic())
+	return EncodePacket(PacketTagPublicSubkey, key.base.encodePublic())
 }
 
 // EncodePrivatePacket encodes the private key into a serialized OpenPGP packet.
 func (key *Curve25519Subkey) EncodePrivatePacket(password []byte) ([]byte, error) {
-	buf := new(bytes.Buffer)
-
-	// First include public key in the packet.
-	buf.Write(key.encodePublic())
-
-	// package curve25519 represents private keys with little-endian byte slices.
-	// reverse this number before exporting to ensure it is interpreted correctly
-	// by OpenPGP software, which uses big-endian representations.
-	privateKeyBigEndian := reverse(key.Private)
-
-	if len(password) > 0 {
-		encrypted, err := EncryptS2K(DefaultStringToKeyHashFunc, privateKeyBigEndian, password)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(encrypted)
-	} else {
-		// Specify string-to-key usage byte as unencrypted.
-		buf.WriteByte(0)
-
-		// MPI-encoded secret key.
-		mpiEncodedKey := EncodeMPI(new(big.Int).SetBytes(privateKeyBigEndian))
-		buf.Write(mpiEncodedKey)
-		buf.Write(checksumMPI(mpiEncodedKey))
+	encodedPrivateKey, err := key.base.encodePrivate(password)
+	if err != nil {
+		return nil, err
 	}
-
-	return EncodePacket(PacketTagSecretSubkey, buf.Bytes()), nil
+	return EncodePacket(PacketTagSecretSubkey, encodedPrivateKey), nil
 }
 
 func reverse(original []byte) []byte {

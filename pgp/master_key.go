@@ -17,6 +17,7 @@ var oidED25519 = []byte{
 
 // ED25519MasterKey represents an OpenPGP ED25519 EdDSA signing and certification master key.
 type ED25519MasterKey struct {
+	base     *ellipticCurveKey
 	Private  ed25519.PrivateKey
 	Public   ed25519.PublicKey
 	Creation time.Time
@@ -33,6 +34,16 @@ func NewED25519MasterKey(seed []byte, creation, expiry time.Time) (*ED25519Maste
 	publicKey := privateKey.Public().(ed25519.PublicKey)
 
 	key := &ED25519MasterKey{
+		base: &ellipticCurveKey{
+			// package ed25519 represents private keys as the concatenation of private and
+			// public keys. Trim off the public part before exporting.
+			Private: privateKey[:32],
+
+			Public:    publicKey,
+			Creation:  creation,
+			Algorithm: keyAlgorithmEDDSA,
+			CurveOID:  oidED25519,
+		},
 		Private:  privateKey,
 		Public:   publicKey,
 		Creation: creation,
@@ -41,34 +52,9 @@ func NewED25519MasterKey(seed []byte, creation, expiry time.Time) (*ED25519Maste
 	return key, nil
 }
 
-// encodePublic encodes the public key into a serialized payload suitable for
-// use in a packet payload.
-func (key *ED25519MasterKey) encodePublic() []byte {
-	buf := new(bytes.Buffer)
-
-	// Packet version
-	buf.WriteByte(keyPacketVersion)
-
-	// Specify key creation time
-	binary.Write(buf, binary.BigEndian, uint32(key.Creation.Unix()))
-
-	// ECC-type public key
-	buf.WriteByte(keyAlgorithmEDDSA)
-
-	// Specify which curve the key uses
-	buf.WriteByte(byte(len(oidED25519)))
-	buf.Write(oidED25519)
-
-	// MPI-encoding of public key point
-	publicKeyMPI := EncodeMPI(new(big.Int).SetBytes(append([]byte{mpiPrefixEddsaPoint}, key.Public...)))
-	buf.Write(publicKeyMPI)
-
-	return buf.Bytes()
-}
-
 // FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
 func (key *ED25519MasterKey) FingerprintV4() []byte {
-	publicKeyPayload := key.encodePublic()
+	publicKeyPayload := key.base.encodePublic()
 
 	h := sha1.New()
 	h.Write([]byte{publicKeyPrefixV4})
@@ -80,37 +66,16 @@ func (key *ED25519MasterKey) FingerprintV4() []byte {
 
 // EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
 func (key *ED25519MasterKey) EncodePublicSubkeyPacket() []byte {
-	return EncodePacket(PacketTagPublicKey, key.encodePublic())
+	return EncodePacket(PacketTagPublicKey, key.base.encodePublic())
 }
 
 // EncodePrivatePacket encodes the private key into a serialized OpenPGP packet.
 func (key *ED25519MasterKey) EncodePrivatePacket(password []byte) ([]byte, error) {
-	buf := new(bytes.Buffer)
-
-	// First include public key in the packet.
-	buf.Write(key.encodePublic())
-
-	// package ed25519 represents private keys as the concatenation of private and
-	// public keys. Trim off the public part before exporting.
-	privateKey := key.Private[:32]
-
-	if len(password) > 0 {
-		encrypted, err := EncryptS2K(DefaultStringToKeyHashFunc, privateKey, password)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(encrypted)
-	} else {
-		// Specify string-to-key usage byte as unencrypted.
-		buf.WriteByte(0)
-
-		// MPI-encoded secret key.
-		mpiEncodedKey := EncodeMPI(new(big.Int).SetBytes(privateKey))
-		buf.Write(mpiEncodedKey)
-		buf.Write(checksumMPI(mpiEncodedKey))
+	encodedPrivateKey, err := key.base.encodePrivate(password)
+	if err != nil {
+		return nil, err
 	}
-
-	return EncodePacket(PacketTagSecretKey, buf.Bytes()), nil
+	return EncodePacket(PacketTagSecretKey, encodedPrivateKey), nil
 }
 
 // SignatureRequest is the input data needed for an OpenPGP signature.
@@ -179,7 +144,7 @@ func (key *ED25519MasterKey) Sign(req *SignatureRequest) *Signature {
 // SelfCertify returns a self-certification signature, needed
 // to prove the key attests to being owned by a given user identifier.
 func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
-	publicKeyPayload := key.encodePublic()
+	publicKeyPayload := key.base.encodePublic()
 	userIDPayload := userID.Encode()
 
 	buf := new(bytes.Buffer)
@@ -228,8 +193,8 @@ func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 
 // BindSubkey returns a subkey binding signature on the given encryption subkey.
 func (key *ED25519MasterKey) BindSubkey(subkey *Curve25519Subkey) *Signature {
-	parentPublicPayload := key.encodePublic()
-	subkeyPublicPayload := subkey.encodePublic()
+	parentPublicPayload := key.base.encodePublic()
+	subkeyPublicPayload := subkey.base.encodePublic()
 
 	buf := new(bytes.Buffer)
 
