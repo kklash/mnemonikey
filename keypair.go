@@ -66,7 +66,8 @@ var (
 )
 
 // DeterministicKeyPair represents a determinstically generated PGP key pair. It contains
-// a master certification+signing key, an encryption subkey, and the seed used to derive them.
+// a master certification key, and encryption, authentication, and signing subkeys, as well
+// as the seed data used to derive all four keys.
 type DeterministicKeyPair struct {
 	pgpKeyPair      *pgp.KeyPair
 	seed            *Seed

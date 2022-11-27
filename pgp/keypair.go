@@ -23,8 +23,8 @@ type KeyPair struct {
 	SigningSubkey        *ED25519Subkey
 }
 
-// NewKeyPair derives a ED25519 and X25519 key pair by expanding the given seed
-// using the HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
+// NewKeyPair derives a KeyPair by expanding the given seed using the
+// HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
 //
 // For safety, seed must be at least 16 bytes long to ensure security of the
 // derived keys.
