@@ -125,6 +125,10 @@ const (
 	// a master certification key.
 	SignatureTypeSubkeyBinding SignatureType = 0x18
 
+	// SignatureTypePrimaryKeyBinding indicates teh signature intends to bind a master
+	// key to a signing subkey.
+	SignatureTypePrimaryKeyBinding SignatureType = 0x19
+
 	// Assorted signature types not used by this library but exported for optional
 	// downstream funcionality extensions.
 	SignatureTypeBinaryDocument         SignatureType = 0x00
@@ -134,7 +138,6 @@ const (
 	SignatureTypePersonaCertification   SignatureType = 0x11
 	SignatureTypeCasualCertification    SignatureType = 0x12
 	SignatureTypeAttestedKey            SignatureType = 0x16
-	SignatureTypePrimaryKeyBinding      SignatureType = 0x19
 	SignatureTypeDirectKey              SignatureType = 0x1F
 	SignatureTypeRevocation             SignatureType = 0x20
 	SignatureTypeSubkeyRevocation       SignatureType = 0x28
@@ -169,6 +172,7 @@ const (
 	SubpacketTypePreferredCompressionAlgorithms SubpacketType = 22
 	SubpacketTypeKeyFlags                       SubpacketType = 27
 	SubpacketTypeFeatures                       SubpacketType = 30
+	SubpacketTypeEmbeddedSignature              SubpacketType = 32
 	SubpacketTypeIssuerFingerprint              SubpacketType = 33
 	SubpacketTypePreferredAEADAlgorithms        SubpacketType = 34
 )

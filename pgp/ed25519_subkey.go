@@ -29,9 +29,12 @@ func NewED25519Subkey(seed []byte, creation time.Time, expiry time.Time) (*ED255
 		base: &ellipticCurveKey{
 			// package ed25519 represents private keys as the concatenation of private and
 			// public keys. Trim off the public part before exporting.
-			Private: privateKey[:32],
+			PrivateSerialized: privateKey[:32],
+			PublicSerialized:  publicKey,
 
-			Public:    publicKey,
+			PrivateSigning: privateKey,
+			PublicSigning:  publicKey,
+
 			Creation:  creation,
 			Algorithm: keyAlgorithmEDDSA,
 			CurveOID:  oidED25519,

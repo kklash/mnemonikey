@@ -3,7 +3,6 @@ package pgp
 import (
 	"bytes"
 	"crypto/ed25519"
-	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -36,9 +35,12 @@ func NewED25519MasterKey(seed []byte, creation, expiry time.Time) (*ED25519Maste
 		base: &ellipticCurveKey{
 			// package ed25519 represents private keys as the concatenation of private and
 			// public keys. Trim off the public part before exporting.
-			Private: privateKey[:32],
+			PrivateSerialized: privateKey[:32],
+			PublicSerialized:  publicKey,
 
-			Public:    publicKey,
+			PrivateSigning: privateKey,
+			PublicSigning:  publicKey,
+
 			Creation:  creation,
 			Algorithm: keyAlgorithmEDDSA,
 			CurveOID:  oidED25519,
@@ -173,6 +175,28 @@ func (key *ED25519MasterKey) BindSubkey(
 		subpackets = append(subpackets, &Subpacket{
 			Type: SubpacketTypeExpiry,
 			Body: expiryTime,
+		})
+	}
+
+	// cross-certification: binds the subkey to the master key to confirm they are
+	// owned by the same person. See: https://gnupg.org/faq/subkey-cross-certify.html
+	if keyFlags&keyFlagSign != 0 {
+		if subkeyBase.PrivateSigning == nil {
+			panic("attempting to bind to signing key, but signing key doesn't have an ed25519.PrivateKey")
+		}
+		subpackets = append(subpackets, &Subpacket{
+			Type: SubpacketTypeEmbeddedSignature,
+			Body: Sign(
+				subkeyBase.PrivateSigning,
+				&SignatureRequest{
+					SigningKeyFingerprint: subkeyBase.FingerprintV4(),
+					HashFunction:          HashFuncSHA256,
+					Data:                  buf.Bytes(),
+					Type:                  SignatureTypePrimaryKeyBinding,
+					Subpackets:            subpackets,
+					Time:                  subkeyBase.Creation,
+				},
+			).Encode(),
 		})
 	}
 

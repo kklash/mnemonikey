@@ -2,6 +2,7 @@ package pgp
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/sha1"
 	"encoding/binary"
 	"math/big"
@@ -11,12 +12,14 @@ import (
 // ellipticCurveKey is used to abstract away the the common encoding of elliptic curve
 // private and public keys in OpenPGP format.
 type ellipticCurveKey struct {
-	Private         []byte
-	Public          []byte
-	Creation        time.Time
-	Algorithm       byte
-	CurveOID        []byte
-	ExtraPublicData []byte
+	PrivateSerialized []byte
+	PublicSerialized  []byte
+	PrivateSigning    ed25519.PrivateKey
+	PublicSigning     ed25519.PublicKey
+	Creation          time.Time
+	Algorithm         byte
+	CurveOID          []byte
+	ExtraPublicData   []byte
 }
 
 // encodePublic encodes the public key into a serialized payload suitable for
@@ -39,7 +42,7 @@ func (key *ellipticCurveKey) encodePublic() []byte {
 
 	// MPI-encoding of public key point
 	publicKeyMPI := EncodeMPI(
-		new(big.Int).SetBytes(append([]byte{mpiPrefixEddsaPoint}, key.Public...)),
+		new(big.Int).SetBytes(append([]byte{mpiPrefixEddsaPoint}, key.PublicSerialized...)),
 	)
 	buf.Write(publicKeyMPI)
 
@@ -59,7 +62,7 @@ func (key *ellipticCurveKey) encodePrivate(password []byte) ([]byte, error) {
 	buf.Write(key.encodePublic())
 
 	if len(password) > 0 {
-		encrypted, err := EncryptS2K(DefaultStringToKeyHashFunc, key.Private, password)
+		encrypted, err := EncryptS2K(DefaultStringToKeyHashFunc, key.PrivateSerialized, password)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +72,7 @@ func (key *ellipticCurveKey) encodePrivate(password []byte) ([]byte, error) {
 		buf.WriteByte(0)
 
 		// MPI-encoded secret key.
-		mpiEncodedKey := EncodeMPI(new(big.Int).SetBytes(key.Private))
+		mpiEncodedKey := EncodeMPI(new(big.Int).SetBytes(key.PrivateSerialized))
 		buf.Write(mpiEncodedKey)
 		buf.Write(checksumMPI(mpiEncodedKey))
 	}

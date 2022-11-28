@@ -56,9 +56,9 @@ func NewCurve25519Subkey(
 			// package curve25519 represents private keys with little-endian byte slices.
 			// reverse this number before exporting to ensure it is interpreted correctly
 			// by OpenPGP software, which uses big-endian representations.
-			Private: reverse(privateKey),
+			PrivateSerialized: reverse(privateKey),
+			PublicSerialized:  publicKey,
 
-			Public:          publicKey,
 			Creation:        creation,
 			Algorithm:       keyAlgorithmECDH,
 			CurveOID:        oidCurve25519,
