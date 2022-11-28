@@ -78,15 +78,18 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	fmt.Printf("Generated OpenPGP private key with %d bits of entropy:\n\n", seed.EntropyBitCount)
-	fmt.Print(magenta(pgpArmorKey) + "\n\n")
+	eprintf("Generated OpenPGP private key with %d bits of entropy.\n", seed.EntropyBitCount)
+	eprintf("Key fingerprint: %X\n", keyPair.FingerprintV4())
+	eprintln(magentaStart)
+	fmt.Println(pgpArmorKey)
+	eprintln(colorEnd)
 
 	// TODO print debug info about key
 
-	fmt.Print("This is the mnemonic phrase which can be used to recover the private key:\n\n")
+	eprint("This is the mnemonic phrase which can be used to recover the private key:\n\n")
 	printMnemonic(recoveryMnemonic)
-	fmt.Print("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
-	fmt.Print(
+	eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
+	eprint(
 		underline(
 			"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
 		),
@@ -99,6 +102,6 @@ func printMnemonic(words []string) {
 	for i, word := range words {
 		humanIndex := strconv.Itoa(i + 1)
 		spacing := strings.Repeat(" ", 4-len(humanIndex))
-		fmt.Printf("%s:%s%s\n", humanIndex, spacing, bold(magenta((word))))
+		eprintf("%s:%s%s\n", humanIndex, spacing, bold(magenta((word))))
 	}
 }

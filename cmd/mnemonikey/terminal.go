@@ -34,17 +34,22 @@ const (
 	keyCodeControlD  byte = 4
 )
 
+const (
+	magentaStart = escapeCode + "[35m"
+	colorEnd     = escapeCode + "[39m"
+)
+
 // Text formatting
 func bold(s string) string      { return escapeCode + "[1m" + s + escapeCode + "[22m" }
 func faint(s string) string     { return escapeCode + "[2m" + s + escapeCode + "[22m" }
 func underline(s string) string { return escapeCode + "[4m" + s + escapeCode + "[24m" }
 
 // Colors
-func red(s string) string     { return escapeCode + "[31m" + s + escapeCode + "[39m" }
-func green(s string) string   { return escapeCode + "[32m" + s + escapeCode + "[39m" }
-func blue(s string) string    { return escapeCode + "[34m" + s + escapeCode + "[39m" }
-func magenta(s string) string { return escapeCode + "[35m" + s + escapeCode + "[39m" }
-func cyan(s string) string    { return escapeCode + "[36m" + s + escapeCode + "[39m" }
+func red(s string) string     { return escapeCode + "[31m" + s + colorEnd }
+func green(s string) string   { return escapeCode + "[32m" + s + colorEnd }
+func blue(s string) string    { return escapeCode + "[34m" + s + colorEnd }
+func magenta(s string) string { return magentaStart + s + colorEnd }
+func cyan(s string) string    { return escapeCode + "[36m" + s + colorEnd }
 
 const (
 	defaultWidth               = 75

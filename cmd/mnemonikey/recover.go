@@ -87,8 +87,10 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	}
 
 	// TODO print debug data about derived key, Key ID, etc.
-	fmt.Printf("Re-derived the following OpenPGP key:\n\n")
-	fmt.Println(bold(magenta(pgpArmorKey)))
+	eprintf("Re-derived OpenPGP key with fingerprint %X\n\n", keyPair.FingerprintV4())
+	eprint(magentaStart)
+	fmt.Println(pgpArmorKey)
+	eprint(colorEnd)
 
 	return nil
 }

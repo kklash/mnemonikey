@@ -50,7 +50,7 @@ func (cmd *Command[Options]) Run(args []string) error {
 		if hasFlags {
 			fmt.Fprintf(out, "Options:\n")
 			flags.PrintDefaults()
-			fmt.Println()
+			fmt.Fprintln(out)
 		}
 	}
 
