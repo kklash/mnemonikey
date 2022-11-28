@@ -2,6 +2,7 @@ package pgp
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"math/big"
 	"time"
@@ -74,4 +75,16 @@ func (key *ellipticCurveKey) encodePrivate(password []byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+// FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
+func (key *ellipticCurveKey) FingerprintV4() []byte {
+	publicKeyPayload := key.encodePublic()
+
+	h := sha1.New()
+	h.Write([]byte{publicKeyPrefixV4})
+	binary.Write(h, binary.BigEndian, uint16(len(publicKeyPayload)))
+	h.Write(publicKeyPayload)
+
+	return h.Sum(nil)
 }

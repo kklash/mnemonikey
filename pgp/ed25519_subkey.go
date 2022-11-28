@@ -45,6 +45,11 @@ func NewED25519Subkey(seed []byte, creation time.Time, expiry time.Time) (*ED255
 	return key, nil
 }
 
+// FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
+func (key *ED25519Subkey) FingerprintV4() []byte {
+	return key.base.FingerprintV4()
+}
+
 // EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
 func (key *ED25519Subkey) EncodePublicSubkeyPacket() []byte {
 	return EncodePacket(PacketTagPublicSubkey, key.base.encodePublic())

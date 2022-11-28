@@ -53,14 +53,7 @@ func NewED25519MasterKey(seed []byte, creation, expiry time.Time) (*ED25519Maste
 
 // FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
 func (key *ED25519MasterKey) FingerprintV4() []byte {
-	publicKeyPayload := key.base.encodePublic()
-
-	h := sha1.New()
-	h.Write([]byte{publicKeyPrefixV4})
-	binary.Write(h, binary.BigEndian, uint16(len(publicKeyPayload)))
-	h.Write(publicKeyPayload)
-
-	return h.Sum(nil)
+	return key.base.FingerprintV4()
 }
 
 // EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
