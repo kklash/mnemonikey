@@ -81,7 +81,15 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return fmt.Errorf("failed to re-derive key pair: %w", err)
 	}
 
-	pgpArmorKey, err := keyPair.EncodePGPArmor([]byte(nil))
+	var password []byte
+	if opts.Common.Encrypt {
+		password, err = userInputPassword()
+		if err != nil {
+			return err
+		}
+	}
+
+	pgpArmorKey, err := keyPair.EncodePGPArmor(password)
 	if err != nil {
 		return err
 	}

@@ -68,7 +68,15 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	pgpArmorKey, err := keyPair.EncodePGPArmor([]byte(nil))
+	var password []byte
+	if opts.Common.Encrypt {
+		password, err = userInputPassword()
+		if err != nil {
+			return err
+		}
+	}
+
+	pgpArmorKey, err := keyPair.EncodePGPArmor(password)
 	if err != nil {
 		return err
 	}

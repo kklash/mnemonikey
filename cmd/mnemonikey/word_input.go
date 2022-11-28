@@ -2,8 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 
 	"golang.org/x/term"
@@ -182,4 +186,66 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 	}
 
 	return words, nil
+}
+
+var errPasswordConfirmationFailed = errors.New("Passwords do not match. Please try again.")
+
+// userInputPassword accepts a password input from the user's terminal.
+func userInputPassword() ([]byte, error) {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	oldState, err := term.GetState(int(os.Stdin.Fd()))
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		<-ctx.Done()
+		fmt.Println()
+		term.Restore(int(os.Stdin.Fd()), oldState)
+	}()
+
+	passChan := make(chan []byte)
+	errChan := make(chan error, 1)
+
+	go func() {
+		eprint(faint("Enter key encryption password: "))
+		pass1, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			errChan <- fmt.Errorf("failed to read password: %w", err)
+			return
+		}
+
+		eprint(faint("\nConfirm key encryption password: "))
+		pass2, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			errChan <- fmt.Errorf("failed to confirm password: %w", err)
+			return
+		}
+		if !bytes.Equal(pass1, pass2) {
+			errChan <- errPasswordConfirmationFailed
+			return
+		}
+		passChan <- pass1
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("aborted")
+
+	case err := <-errChan:
+		eprintln()
+		if errors.Is(err, errPasswordConfirmationFailed) {
+			eprintln(red(err.Error()))
+			return userInputPassword()
+		}
+		return nil, err
+
+	case pass := <-passChan:
+		if len(pass) == 0 {
+			return nil, fmt.Errorf("cannot encrypt keys with an empty password")
+		}
+		return pass, nil
+	}
 }

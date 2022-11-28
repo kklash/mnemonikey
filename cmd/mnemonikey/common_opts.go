@@ -13,6 +13,7 @@ type GenerateRecoverOptions struct {
 	Email     string
 	Expiry    string
 	WordCount uint
+	Encrypt   bool
 }
 
 // AddFlags registers the common set of options as command line flags.
@@ -51,6 +52,15 @@ func (opts *GenerateRecoverOptions) AddFlags(flags *flag.FlagSet) {
 				"Number of words in the recovery mnemonic. Must be at least %d. (optional)",
 				mnemonikey.MinMnemonicSize,
 			),
+		),
+	)
+
+	flags.BoolVar(
+		&opts.Encrypt,
+		"encrypt",
+		false,
+		justifyOptionDescription(
+			"Encrypt the derived PGP private keys with a password when exporting them. (optional)",
 		),
 	)
 }
