@@ -11,6 +11,10 @@ import (
 
 var bigOne = big.NewInt(1)
 
+// ErrInvalidWordCount is returned when creating a Seed or decoding a mnemonic recovery
+// phrase with fewer than MinMnemonicSize words.
+var ErrInvalidWordCount = fmt.Errorf("mnemonics must be at least %d words long", MinMnemonicSize)
+
 // Seed represents a seed which was generated with a specific number of bits of entropy.
 //
 // Byte-representations of that seed should always be a fixed size, regardless of the
@@ -30,6 +34,10 @@ func NewSeed(entropyInt *big.Int, entropyBitCount uint) *Seed {
 // GenerateSeed generates a random Seed of a given bit size using the given random source.
 func GenerateSeed(random io.Reader, wordCount uint) (*Seed, error) {
 	entropyBitCount := wordCount*mnemonic.BitsPerWord - CreationOffsetBitCount - ChecksumBitCount
+
+	if wordCount < MinMnemonicSize {
+		return nil, ErrInvalidWordCount
+	}
 
 	maxSeedInt := new(big.Int).Lsh(bigOne, entropyBitCount)
 	entropyInt, err := rand.Int(random, maxSeedInt)

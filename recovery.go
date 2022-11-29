@@ -40,6 +40,10 @@ func RecoverKeyPair(words []string, name, email string, expiry time.Time) (*Dete
 // DecodeMnemonic decodes a recovery mnemonic into the embedded Seed data
 // and key creation timestamp.
 func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) {
+	if len(words) < int(MinMnemonicSize) {
+		err = ErrInvalidWordCount
+		return
+	}
 	indices, err := mnemonic.DecodeMnemonic(words)
 	if err != nil {
 		return
