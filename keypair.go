@@ -165,7 +165,7 @@ func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 	payloadBitCount := keyPair.seed.EntropyBitCount + CreationOffsetBitCount
 	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
 
-	checksum := ^crc32.Checksum(payloadBytes, checksumTable)
+	checksum := 0x7F & crc32.Checksum(payloadBytes, checksumTable)
 	payloadInt.Lsh(payloadInt, ChecksumBitCount)
 	payloadInt.Or(payloadInt, big.NewInt(int64(checksum)))
 
