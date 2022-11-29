@@ -22,6 +22,8 @@ type SearchResult struct {
 
 // Search runs a binary search on the BIP39 wordlist to find any words which match
 // the given input query string. This is useful for autocomplete and error correction.
+//
+// The input query must be in lower case to return any results.
 func Search(query string) *SearchResult {
 	result := &SearchResult{Suffixes: []string{}}
 	if query == "" {
