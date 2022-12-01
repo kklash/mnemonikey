@@ -39,9 +39,12 @@ const (
 	// ChecksumBitCount is the number of bits in the backup payload reserved for the checksum.
 	ChecksumBitCount uint = 7
 
-	// MinMnemonicSize is the minimum safe number of mnemonic words needed to encode
-	// both the key creation offset and at least 128 bits of seed entropy.
-	MinMnemonicSize uint = 15
+	// EntropyBitCount is the number of bits of entropy in the seed used to derive PGP keys.
+	EntropyBitCount = 128
+
+	// MnemonicSize is the number of mnemonic words needed to encode
+	// both the key creation offset and 128 bits of seed entropy.
+	MnemonicSize uint = 15
 )
 
 // MaxCreationTime is the farthest point in the future that the mnemonikey recovery phrase
@@ -150,16 +153,14 @@ func (keyPair *DeterministicKeyPair) EncodePGPArmor(password []byte) (string, er
 	return pgpArmorKey, nil
 }
 
-// EncodeMnemonic encodes the key pair's seed and creation offset into an English recovery mnemonic.
-//
-// The recovery mnemonic, plus the user ID (name and email) are sufficient to recover
-// the entire key pair.
+// EncodeMnemonic encodes the key pair's seed and creation offset into an English recovery
+// mnemonic. The recovery mnemonic alone is sufficient to recover the entire key pair.
 func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 	payloadInt := new(big.Int).Set(keyPair.seed.Value)
 	payloadInt.Lsh(payloadInt, CreationOffsetBitCount)
 	payloadInt.Or(payloadInt, big.NewInt(int64(keyPair.creationOffset)))
 
-	payloadBitCount := keyPair.seed.EntropyBitCount + CreationOffsetBitCount
+	payloadBitCount := EntropyBitCount + CreationOffsetBitCount
 	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
 
 	checksum := 0x7F & crc32.Checksum(payloadBytes, checksumTable)

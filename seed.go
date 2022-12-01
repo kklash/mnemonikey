@@ -5,55 +5,39 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-
-	"github.com/kklash/mnemonikey/mnemonic"
 )
 
 var bigOne = big.NewInt(1)
-
-// ErrInvalidWordCount is returned when creating a Seed or decoding a mnemonic recovery
-// phrase with fewer than MinMnemonicSize words.
-var ErrInvalidWordCount = fmt.Errorf("mnemonics must be at least %d words long", MinMnemonicSize)
 
 // Seed represents a seed which was generated with a specific number of bits of entropy.
 //
 // Byte-representations of that seed should always be a fixed size, regardless of the
 // actual integer value of the seed.
 type Seed struct {
-	Value           *big.Int
-	EntropyBitCount uint
+	Value *big.Int
 }
 
-func NewSeed(entropyInt *big.Int, entropyBitCount uint) *Seed {
+func NewSeed(entropyInt *big.Int) *Seed {
 	return &Seed{
-		Value:           entropyInt,
-		EntropyBitCount: entropyBitCount,
+		Value: entropyInt,
 	}
 }
 
-// GenerateSeed generates a random Seed of a given bit size using the given random source.
-func GenerateSeed(random io.Reader, wordCount uint) (*Seed, error) {
-	entropyBitCount := wordCount*mnemonic.BitsPerWord - CreationOffsetBitCount - ChecksumBitCount
-
-	if wordCount < MinMnemonicSize {
-		return nil, ErrInvalidWordCount
-	}
-
-	maxSeedInt := new(big.Int).Lsh(bigOne, entropyBitCount)
+// GenerateSeed generates a random Seed using the given random source.
+func GenerateSeed(random io.Reader) (*Seed, error) {
+	maxSeedInt := new(big.Int).Lsh(bigOne, EntropyBitCount)
 	entropyInt, err := rand.Int(random, maxSeedInt)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to generate %d bits of secure random seed data: %w",
-			entropyBitCount, err,
+			EntropyBitCount, err,
 		)
 	}
 
-	return NewSeed(entropyInt, entropyBitCount), nil
+	return NewSeed(entropyInt), nil
 }
 
-// Bytes returns the big-endian byte representation of seed.Value. Its length will be:
-//
-//	ceil(seed.EntropyBitCount / 8)
+// Bytes returns the big-endian byte representation of seed.Value.
 func (seed *Seed) Bytes() []byte {
-	return seed.Value.FillBytes(make([]byte, (seed.EntropyBitCount+7)/8))
+	return seed.Value.FillBytes(make([]byte, (EntropyBitCount+7)/8))
 }

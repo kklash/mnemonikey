@@ -24,7 +24,6 @@ var GenerateCommand = &Command[GenerateOptions]{
 		"mnemonikey generate",
 		"mnemonikey generate -name username",
 		"mnemonikey generate -name username -email bob@hotmail.com",
-		"mnemonikey generate -name username -words 20",
 		"mnemonikey generate -expiry 2y",
 		"mnemonikey generate -expiry 17w",
 		"mnemonikey generate -expiry 1679285000",
@@ -54,11 +53,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	if opts.Common.WordCount < mnemonikey.MinMnemonicSize {
-		return fmt.Errorf("%w: invalid word count %d", ErrPrintUsage, opts.Common.WordCount)
-	}
-
-	seed, err := mnemonikey.GenerateSeed(rand.Reader, opts.Common.WordCount)
+	seed, err := mnemonikey.GenerateSeed(rand.Reader)
 	if err != nil {
 		return err
 	}
@@ -86,7 +81,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	eprintf("Generated OpenPGP private key with %d bits of entropy.\n", seed.EntropyBitCount)
+	eprintf("Generated OpenPGP private key with %d bits of entropy.\n", mnemonikey.EntropyBitCount)
 	eprintf("Key fingerprint: %X\n", keyPair.FingerprintV4())
 	eprintln(magentaStart)
 	fmt.Println(pgpArmorKey)

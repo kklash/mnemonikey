@@ -21,8 +21,6 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover",
 		"mnemonikey recover -name myuser",
 		"mnemonikey recover -name myuser -email someone@someplace.com",
-		"mnemonikey recover -words 18",
-		"mnemonikey recover -name myuser -words 18",
 		"mnemonikey recover -expiry 2y",
 		"mnemonikey recover -expiry 17w",
 		"mnemonikey recover -expiry 1679285000",
@@ -62,15 +60,11 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		}
 	}
 
-	if opts.Common.WordCount < mnemonikey.MinMnemonicSize {
-		return fmt.Errorf("%w: invalid word count %d", ErrPrintUsage, opts.Common.WordCount)
-	}
-
 	var words []string
 	if opts.SimpleInput {
-		words, err = userInputMnemonicSimple(opts.Common.WordCount)
+		words, err = userInputMnemonicSimple(mnemonikey.MnemonicSize)
 	} else {
-		words, err = userInputMnemonic(opts.Common.WordCount)
+		words, err = userInputMnemonic(mnemonikey.MnemonicSize)
 	}
 	if err != nil {
 		return err

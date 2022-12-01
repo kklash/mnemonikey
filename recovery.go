@@ -14,8 +14,12 @@ import (
 // to a checksum mismatch.
 var ErrInvalidChecksum = errors.New("failed to validate checksum embedded in mnemonic phrase")
 
+// ErrInvalidWordCount is returned when decoding a mnemonic recovery
+// phrase whose word count is not MnemonicSize.
+var ErrInvalidWordCount = fmt.Errorf("mnemonics must be %d words long", MnemonicSize)
+
 // RecoverKeyPair decodes a seed and creation offset from the given recovery mnemonic and
-// re-derives its child PGP key.
+// re-derives its child PGP keys.
 //
 // The given name and email must be the same as was used to originally generate the key,
 // otherwise the key fingerprint will not match.
@@ -40,7 +44,7 @@ func RecoverKeyPair(words []string, name, email string, expiry time.Time) (*Dete
 // DecodeMnemonic decodes a recovery mnemonic into the embedded Seed data
 // and key creation timestamp.
 func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) {
-	if len(words) < int(MinMnemonicSize) {
+	if len(words) != int(MnemonicSize) {
 		err = ErrInvalidWordCount
 		return
 	}
@@ -73,8 +77,7 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 	payloadInt.Rsh(payloadInt, CreationOffsetBitCount)
 
 	// Remaining bits are all seed data
-	seedEntropyBitCount := payloadBitCount - CreationOffsetBitCount
-	seed = NewSeed(payloadInt, seedEntropyBitCount)
+	seed = NewSeed(payloadInt)
 
 	return
 }

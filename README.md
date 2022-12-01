@@ -51,9 +51,9 @@ Here follows a specification which would allow anyone to re-implement `mnemonike
 | PGP Key Pair | A pair of PGP keys: the master key for certification, and subkeys for signing, encryption, and authentication. |
 | Mnemonikey Epoch | Midnight in UTC time on new year's eve between 2021 and 2022 (AKA `1640995200` in unix time). This is used to identify the absolute time encoded by the key creation offset. |
 | Key Creation Offset | The number of seconds after the mnemonikey epoch when the PGP key pair was created. This offset is serialized as a 30-bit number in the backup payload. |
-| Seed | A securely-generated random integer, containing at least 128 bits of entropy. |
+| Seed | A securely-generated random integer, containing 128 bits of entropy. |
 | Backup Payload | The combination of a seed and key creation offset. Together, they form a backup payload, which can be used to fully recover a PGP key pair |
-| Recovery Phrase / Mnemonic Phrase | A sequence of 15 or more english words which encodes the backup payload and checksum. |
+| Recovery Phrase / Mnemonic Phrase | A sequence of 15 english words which encodes the backup payload and checksum. |
 | Checksum Generator Polynomial | The CRC-32 IEEE generator polynomial. Used for checksumming the backup payload. $x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1$) |
 
 ## Goals
@@ -157,21 +157,21 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
 
 | Input | Description | Required |
 |:-----:|:-----------:|:--------:|
-|`seed`| A securely-generated random integer with $n$ bits of entropy. This implies there are $2^n$ possible seeds, in the range $0 <= x < 2^n$. $n$ must be at least 128, and $n + 37$ should be evenly divisible by 11. | YES |
+|`seed`| A securely-generated random integer with 128 bits of entropy. | YES |
 |`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **30-bit** integer. | YES |
 
 ### Output
 
-An english phrase of at least 15 words which completely encodes the `seed` and the `creationOffset`.
+An english phrase of 15 words which completely encodes the `seed` and the `creationOffset`.
 
 ### Procedure
 
 1. Shift `seed` left by 30 bits and bitwise-OR it with the 30-bit integer `creationOffset`.
     - Call the result `backupPayload`.
     - `backupPayload = (seed << 30) | creationOffset`
-1. Serialize the `backupPayload` as a big-endian byte array, with `ceil((n+30) / 8)` bytes.
+1. Serialize the `backupPayload` as a big-endian byte array with length 20.
     - Call the result `backupPayloadBytes`
-    - `backupPayloadBytes = backupPayload.to_bytes(ceil((n+30)/8), 'big')`
+    - `backupPayloadBytes = backupPayload.to_bytes(20, 'big')`
 1. Compute a 7-bit checksum on `backupPayloadBytes` using a cyclic-redundancy-check (CRC).
     - Use the Checksum Generator Polynomial to generate a 32-bit CRC.
     - Take the lowest order 7 bits of the CRC output.
@@ -179,9 +179,9 @@ An english phrase of at least 15 words which completely encodes the `seed` and t
     - Example: The 7-bit checksum of `"hello"` in UTF-8 would be `0x7F & crc32([0x68, 0x65, 0x6c, 0x6c, 0x6f]) = 6`
 1. Append `checksum` as the lowest order bits of `backupPayload`.
     - `backupPayload = (backupPayload << 7) | checksum`
-1. Chunk the backup payload into 11-bit symbols.
-    - $n$ should have been selected such that the total number of bits encoded $n + 30 + 7$ is evenly divisible by 11.
-    - `[(backupPayload >> (i*11)) & 0x7FF for i in range((n+37) / 11)]`
+1. Chunk `backupPayload` into 11-bit symbols, with the highest-order bits as the first chunk.
+    - Note that the total `backupPayload` bit-length $128 + 30 + 7 = 165$ is evenly divisible by 11.
+    - `[(backupPayload >> (i*11)) & 0x7FF for i in reversed(range(15))]`
 1. Interpret each 11-bit symbol as a big-endian integer, mapping to the word at that index in the BIP39 word list.
 1. Return the resulting list of words.
 

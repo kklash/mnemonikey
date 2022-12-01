@@ -62,7 +62,7 @@ func TestDeterministicKeyPair(t *testing.T) {
 		t.Fatalf("failed to instantiate temporary GPG: %s", err)
 	}
 
-	seed, err := GenerateSeed(rand.New(rand.NewSource(0)), MinMnemonicSize)
+	seed, err := GenerateSeed(rand.New(rand.NewSource(0)))
 	if err != nil {
 		t.Fatalf("failed to generate seed: %s", err)
 	}
