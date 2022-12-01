@@ -54,7 +54,7 @@ Here follows a specification which would allow anyone to re-implement `mnemonike
 | Seed | A securely-generated random integer, containing at least 128 bits of entropy. |
 | Backup Payload | The combination of a seed and key creation offset. Together, they form a backup payload, which can be used to fully recover a PGP key pair |
 | Recovery Phrase / Mnemonic Phrase | A sequence of 15 or more english words which encodes the backup payload and checksum. |
-| Checksum Generator Polynomial | The CRC-7-MVB generator polynomial $x^7 +x^6 +x^3 + x + 1$. Used for checksumming the bcakup payload. |
+| Checksum Generator Polynomial | The CRC-32 IEEE generator polynomial. Used for checksumming the backup payload. $x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1$) |
 
 ## Goals
 
@@ -72,7 +72,6 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 |[ED25519 (EdDSA)](https://ed25519.cr.yp.to/)|Algorithm used for the certification master key, and for the authentication and signing subkeys. Used to create signatures to bind the PGP key pair together.|
 |[Curve25519 (ECDH)](https://en.wikipedia.org/wiki/Curve25519)|Generates the encryption subkey.|
 |CRC (cyclic redundancy check)|Used to checksum the recovery phrase.|
-
 
 ## Key Derivation
 
@@ -175,15 +174,16 @@ An english phrase of at least 15 words which completely encodes the `seed` and t
 1. Serialize the `backupPayload` as a big-endian byte array, with `ceil((n+30) / 8)` bytes.
     - Call the result `backupPayloadBytes`
     - `backupPayloadBytes = backupPayload.to_bytes(ceil((n+30)/8), 'big')`
-1. Produce a checksum on `backupPayloadBytes` through a cyclic-redundancy-check (CRC) with a 7-bit output.
-    - Use the Checksum Generator Polynomial $x^7 +x^6 +x^3 + x + 1$, also known as the CRC-7-MVB polynomial, to generate the checksum.
-    - If your CRC implementation outputs numbers larger than 7 bits, make sure to take only the lowest order 7 bits, as the others will not change.
-    - `checksum = 0x7F & crc.sum(backupPayloadBytes, poly=0x53)`
-    - Example: the CRC-7-MVB checksum of `[0x62, 0x35, 0x43]` (`"b5c"` in UTF-8) is `0`.
-1. Append the checksum by bitwise-OR-ing it into the backup payload.
+1. Compute a 7-bit checksum on `backupPayloadBytes` using a cyclic-redundancy-check (CRC).
+    - Use the Checksum Generator Polynomial to generate a 32-bit CRC.
+    - Take the lowest order 7 bits of the CRC output.
+    - `checksum = 0x7F & crc32(backupPayloadBytes)`
+    - Example: The 7-bit checksum of `"hello"` in UTF-8 would be `0x7F & crc32([0x68, 0x65, 0x6c, 0x6c, 0x6f]) = 6`
+1. Append `checksum` as the lowest order bits of `backupPayload`.
     - `backupPayload = (backupPayload << 7) | checksum`
-1. Break up the backup payload into 11-bit symbols.
+1. Chunk the backup payload into 11-bit symbols.
     - $n$ should have been selected such that the total number of bits encoded $n + 30 + 7$ is evenly divisible by 11.
+    - `[(backupPayload >> (i*11)) & 0x7FF for i in range((n+37) / 11)]`
 1. Interpret each 11-bit symbol as a big-endian integer, mapping to the word at that index in the BIP39 word list.
 1. Return the resulting list of words.
 
@@ -201,9 +201,11 @@ ED25519 has a security level of 128 bits. Using more than 128 bits of seed entro
 
 Key creation times in OpenPGP keys are represented as 32-bit unix timestamps. We can save a bit more space by reducing the size of the key creation timestamp slightly. We don't need a full 32-bits of precision, since a very large chunk of time since the unix epoch on `1970-01-01` has already passed, and Mnemonikey was invented in 2022. If we define our own epoch, we can easily trim down to 30 bits of precision, while retaining perfect second-level accuracy, and supporting key creation times until `2056-01-10`. Hopefully by then, people will have adopted more advanced cryptography tools than PGP.
 
-Each word in a recovery phrase is one of 2048 ($2^11$) different words, and thus encodes 11 bits of information. To encode a recovery phrase, we need to store both the entropy (128 bits) and the key creation time offset from the epoch (30 bits). $128 + 30 = 158$ and $\frac{158}{11} = 14\frac{4}{11}$. Therefore, the minimum number of words we could use to encode a full 32-bit unix timestamp would be 15 words, leaving 7 unused bits. These last 7 bits can be used for a checksum to ensure Mnemonikey implementations can tell at a glance whether a user has entered the recovery phrase correctly.
-
 We could reduce the size of the key creation timestamp much more by sacrificing timestamp granularity. If we were OK with per-day accuracy only, we could reduce the creation offset integer's size to 15-bits of precision, but this comes at the cost of privacy: Keys created with such granularity in their timestamp could be easily identified as having come from Mnemonikey.
+
+Each word in a recovery phrase is one of 2048 ($2^11$) different words, and thus encodes 11 bits of information. To encode a recovery phrase, we need to store both the entropy (128 bits) and the key creation time offset from the epoch (30 bits). $128 + 30 = 158$ and $\frac{158}{11} = 14\frac{4}{11}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 15 words, leaving 7 unused bits.
+
+These last 7 bits can be used for a checksum to ensure Mnemonikey implementations can confirm at a glance whether a user has entered the recovery phrase correctly. Words in a phrase must already be part of the BIP39 wordlist to be valid, but on the off-chance a user enters another valid but incorrect word, the checksum provides error detection with a collision probability of roughly $\frac{1}{128}$. With a word list of 2048 valid words, that means there are only 16 possible collision-causing 1-word substitutions which the user could accidentally perform for each word in the phrase.
 
 ## Mnemonic Bit-Map
 

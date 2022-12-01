@@ -20,10 +20,7 @@ const EpochIncrement = time.Second
 
 // ChecksumGenerator is the generator polynomial used to calculate a cyclic redundancy
 // checksum (CRC) of the recovery payload.
-//
-// This polynomial is the CRC-7-MVB polynomial, represented in reversed
-// (least-significant-bit) form.
-const ChecksumGenerator uint32 = 0b1010011 // 0x53
+const ChecksumGenerator uint32 = crc32.IEEE
 
 // EpochStart is the start of the epoch after which key creation times are encoded
 // in recovery phrases. It is exactly midnight in UTC time on the new year's eve
