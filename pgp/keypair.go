@@ -10,9 +10,32 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// KeyExpandInfo is the string used as the 'info' parameter to the
-// HDKF-Expand function when generating a key pair.
-const KeyExpandInfo = "mnemonikey"
+const (
+	// KeyExpandInfoMaster is the string used as the 'info' parameter to the
+	// HDKF-Expand function when generating a master key from a seed.
+	KeyExpandInfoMaster = "mnemonikey master key"
+
+	// KeyExpandInfoEncryption is the string used as the 'info' parameter to the
+	// HDKF-Expand function when generating an encryption subkey from a seed.
+	KeyExpandInfoEncryption = "mnemonikey encryption subkey"
+
+	// KeyExpandInfoAuthentication is the string used as the 'info' parameter to the
+	// HDKF-Expand function when generating an authentication subkey from a seed.
+	KeyExpandInfoAuthentication = "mnemonikey authentication subkey"
+
+	// KeyExpandInfoSigning is the string used as the 'info' parameter to the
+	// HDKF-Expand function when generating a signing subkey from a seed.
+	KeyExpandInfoSigning = "mnemonikey signing subkey"
+)
+
+func hkdfExpand32(seed []byte, info string) ([]byte, error) {
+	keyOutput := make([]byte, 32)
+	keyReader := hkdf.Expand(sha256.New, seed, []byte(info))
+	if _, err := io.ReadFull(keyReader, keyOutput); err != nil {
+		return nil, err
+	}
+	return keyOutput, nil
+}
 
 // KeyPair represents a PGP signing and encryption key pair with an associated user identifier.
 type KeyPair struct {
@@ -35,10 +58,9 @@ func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPa
 	if len(seed) < 16 {
 		return nil, fmt.Errorf("seed of size %d is too small to be secure", len(seed))
 	}
-	keyReader := hkdf.Expand(sha256.New, seed, []byte(KeyExpandInfo))
 
-	masterKeySeed := make([]byte, 32)
-	if _, err := io.ReadFull(keyReader, masterKeySeed); err != nil {
+	masterKeySeed, err := hkdfExpand32(seed, KeyExpandInfoMaster)
+	if err != nil {
 		return nil, fmt.Errorf("failed to derive master key from seed: %w", err)
 	}
 	masterKey, err := NewED25519MasterKey(masterKeySeed, creation, expiry)
@@ -46,8 +68,8 @@ func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPa
 		return nil, err
 	}
 
-	encryptionSubkeySeed := make([]byte, 32)
-	if _, err := io.ReadFull(keyReader, encryptionSubkeySeed); err != nil {
+	encryptionSubkeySeed, err := hkdfExpand32(seed, KeyExpandInfoEncryption)
+	if err != nil {
 		return nil, fmt.Errorf("failed to derive encryption subkey from seed: %w", err)
 	}
 	encryptionSubkey, err := NewCurve25519Subkey(encryptionSubkeySeed, creation, expiry, nil)
@@ -55,8 +77,8 @@ func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPa
 		return nil, err
 	}
 
-	authenticationSubkeySeed := make([]byte, 32)
-	if _, err := io.ReadFull(keyReader, authenticationSubkeySeed); err != nil {
+	authenticationSubkeySeed, err := hkdfExpand32(seed, KeyExpandInfoAuthentication)
+	if err != nil {
 		return nil, fmt.Errorf("failed to derive authentication subkey from seed: %w", err)
 	}
 	authenticationSubkey, err := NewED25519Subkey(authenticationSubkeySeed, creation, expiry)
@@ -64,8 +86,8 @@ func NewKeyPair(seed []byte, userID *UserID, creation, expiry time.Time) (*KeyPa
 		return nil, err
 	}
 
-	signingSubkeySeed := make([]byte, 32)
-	if _, err := io.ReadFull(keyReader, signingSubkeySeed); err != nil {
+	signingSubkeySeed, err := hkdfExpand32(seed, KeyExpandInfoSigning)
+	if err != nil {
 		return nil, fmt.Errorf("failed to derive signing subkey from seed: %w", err)
 	}
 	signingSubkey, err := NewED25519Subkey(signingSubkeySeed, creation, expiry)

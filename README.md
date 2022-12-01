@@ -99,13 +99,11 @@ A serialized PGP private key, containing a certification-enabled ED25519 master 
 
 1. Determine the exact key creation timestamp based on `creationOffset` by interpreting `creationOffset` as the number of seconds after the Mnemonikey Epoch.
     - `creation = creationOffset + 1640995200`
-1. Derive the master key and subkeys from the `seed`.
-    - Apply `HDKF-Expand` to `seed` using SHA256 with the string `"mnemonikey"` as the _info_ parameter.
-    - Read 64 bytes from the output of `HKDF-Expand`.
-    - Use the **first** 32 bytes of `HDKF-Expand` as the ED25519 signing and certification master key.
-    - Use the **next** 32 bytes of `HDKF-Expand` as the Curve25519 ECDH encryption subkey.
-    - Use the **next** 32 bytes of `HDKF-Expand` as the ED25519 authentication subkey.
-    - Use the **last** 32 bytes of `HDKF-Expand` as the ED25519 signing subkey.
+1. Derive the master key and subkeys from the `seed` using `HDKF-Expand`.
+    - To derive the ED25519 master certification key, read 32 bytes from `HDKF-Expand` on `seed` using SHA256 with the string `"mnemonikey master key"` as the _info_ parameter.
+    - To derive the Curve25519 ECDH encryption subkey, read 32 bytes from `HDKF-Expand` on `seed` using SHA256 with the string `"mnemonikey encryption subkey"` as the _info_ parameter.
+    - To derive the ED25519 authentication subkey, read 32 bytes from `HDKF-Expand` on `seed` using SHA256 with the string `"mnemonikey authentication subkey"` as the _info_ parameter.
+    - To derive the ED25519 signing subkey, read 32 bytes from `HDKF-Expand` on `seed` using SHA256 with the string `"mnemonikey signing subkey"` as the _info_ parameter.
 1. Derive the ED25519 and Curve25519 public keys for the master key and subkeys.
     - The exact cryptographic procedure for public-key derivation and signatures is out-of-scope for this specification. See [the original Curve25519 paper](https://cr.yp.to/ecdh/curve25519-20060209.pdf) and [the original ED25519 paper](https://ed25519.cr.yp.to/ed25519-20110926.pdf) by Daniel Bernstein and friends.
     - Most modern languages will have libraries available to perform this cryptography for you.
