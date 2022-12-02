@@ -34,10 +34,10 @@ var checksumTable = crc32.MakeTable(ChecksumGenerator)
 
 const (
 	// CreationOffsetBitCount is the number of bits used to represent a key creation offset.
-	CreationOffsetBitCount uint = 30
+	CreationOffsetBitCount uint = 31
 
 	// ChecksumBitCount is the number of bits in the backup payload reserved for the checksum.
-	ChecksumBitCount uint = 7
+	ChecksumBitCount uint = 6
 
 	// EntropyBitCount is the number of bits of entropy in the seed used to derive PGP keys.
 	EntropyBitCount = 128
@@ -46,6 +46,8 @@ const (
 	// both the key creation offset and 128 bits of seed entropy.
 	MnemonicSize uint = 15
 )
+
+const checksumMask = (1 << ChecksumBitCount) - 1
 
 // MaxCreationTime is the farthest point in the future that the mnemonikey recovery phrase
 // encoding algorithm can represent key creation timestamps for.
@@ -163,7 +165,7 @@ func (keyPair *DeterministicKeyPair) EncodeMnemonic() ([]string, error) {
 	payloadBitCount := EntropyBitCount + CreationOffsetBitCount
 	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
 
-	checksum := 0x7F & crc32.Checksum(payloadBytes, checksumTable)
+	checksum := checksumMask & crc32.Checksum(payloadBytes, checksumTable)
 	payloadInt.Lsh(payloadInt, ChecksumBitCount)
 	payloadInt.Or(payloadInt, big.NewInt(int64(checksum)))
 

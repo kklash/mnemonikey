@@ -65,7 +65,7 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 	// Confirm checksum is correct.
 	payloadBitCount := mnemonic.BitsPerWord*uint(len(words)) - ChecksumBitCount
 	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
-	checksum := 0x7F & crc32.Checksum(payloadBytes, checksumTable)
+	checksum := checksumMask & crc32.Checksum(payloadBytes, checksumTable)
 	if checksum != expectedChecksum {
 		err = ErrInvalidChecksum
 		return

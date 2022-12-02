@@ -54,7 +54,7 @@ Here follows a specification which would allow anyone to re-implement `mnemonike
 |------|------------|
 | PGP Key Set | A set of four PGP keys: the master key for certification, and three subkeys for signing, encryption, and authentication. |
 | Mnemonikey Epoch | Midnight in UTC time on new year's eve between 2021 and 2022 (AKA `1640995200` in unix time). This is used to identify the absolute time encoded by the key creation offset. |
-| Key Creation Offset | The number of seconds after the mnemonikey epoch when the PGP key set was created. This offset is serialized as a 30-bit number in the backup payload. |
+| Key Creation Offset | The number of seconds after the mnemonikey epoch when the PGP key set was created. This offset is serialized as a 31-bit number in the backup payload. |
 | Seed | A securely-generated random integer, containing 128 bits of entropy. |
 | Backup Payload | The combination of a seed and key creation offset. Together, they form a backup payload, which can be used to fully recover a PGP key set |
 | Recovery Phrase / Mnemonic Phrase | A sequence of 15 english words which encodes the backup payload and checksum. |
@@ -84,7 +84,7 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 | Input | Description | Required |
 |:-----:|:-----------:|:--------:|
 |`seed`| A securely-generated random integer with 128 bits of entropy. | YES |
-|`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **30-bit** unsigned integer. | YES |
+|`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **31-bit** unsigned integer. | YES |
 |`name`| A human-readable display name used to build the PGP key's user-identifier string. | NO |
 |`email`| An email address used to build the PGP key's user-identifier string. | NO |
 |`expiry`| An 32-bit expiry timestamp applied to the output PGP key set. | NO |
@@ -163,7 +163,7 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
 | Input | Description | Required |
 |:-----:|:-----------:|:--------:|
 |`seed`| A securely-generated random integer with 128 bits of entropy. | YES |
-|`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **30-bit** integer. | YES |
+|`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **31-bit** integer. | YES |
 
 ### Output
 
@@ -171,22 +171,22 @@ An english phrase of 15 words which completely encodes the `seed` and the `creat
 
 ### Procedure
 
-1. Append the 30-bit integer `creationOffset` to `seed` as the lowest-order bits.
+1. Append the 31-bit integer `creationOffset` to `seed` as the lowest-order bits.
     - Call the result `backupPayload`.
-    - `backupPayload = (seed << 30) | creationOffset`
+    - `backupPayload = (seed << 31) | creationOffset`
 1. Serialize the `backupPayload` (now 158-bits long) as a big-endian byte array with length 20.
     - Call the result `backupPayloadBytes`
     - `backupPayloadBytes = backupPayload.to_bytes(20, 'big')`
     - The leading two bits of `backupPayloadBytes` are _always_ zero.
-1. Compute a 7-bit checksum on `backupPayloadBytes` using a cyclic-redundancy-check (CRC).
+1. Compute a 6-bit checksum on `backupPayloadBytes` using a cyclic-redundancy-check (CRC).
     - Use the Checksum Generator Polynomial to generate a 32-bit CRC.
-    - Take the lowest order 7 bits of the CRC output.
-    - `checksum = 0x7F & crc32(backupPayloadBytes)`
-    - Example: The 7-bit checksum of `"hello"` in UTF-8 would be `0x7F & crc32([0x68, 0x65, 0x6c, 0x6c, 0x6f]) = 6`
+    - Take the lowest order 6 bits of the CRC output.
+    - `checksum = 0x3F & crc32(backupPayloadBytes)`
+    - Example: The 6-bit checksum of `"hello"` in UTF-8 would be `0x3F & crc32([0x68, 0x65, 0x6c, 0x6c, 0x6f]) = 6`
 1. Append `checksum` to the lowest order bits of `backupPayload`.
-    - `backupPayload = (backupPayload << 7) | checksum`
+    - `backupPayload = (backupPayload << 6) | checksum`
 1. Chunk `backupPayload` into 11-bit symbols, with the highest-order bits as the first chunk.
-    - Note that the total `backupPayload` bit-length $128 + 30 + 7 = 165$ is evenly divisible by 11.
+    - Note that the total `backupPayload` bit-length $128 + 31 + 6 = 165$ is evenly divisible by 11.
     - `[(backupPayload >> (i*11)) & 0x7FF for i in reversed(range(15))]`
 1. Interpret each 11-bit symbol as a big-endian integer, mapping to the word at that index in the BIP39 word list.
 1. Return the resulting list of words.
@@ -219,7 +219,7 @@ The purpose of Mnemonikey is to securely and deterministically generate a PGP ke
 
 OpenPGP keys are identified by their fingerprint, which is a hash of the serialized public key, including its creation time. That means in order to make deterministic key backup and recovery possible without invalidating the previous key's signatures, the creation time must either be encoded into the backup, or it must be a static constant used for all keys. We chose to encode the creation time into the backup, because having distinct key creation times is convenient and worth the extra few bits of information lengthening the backup.
 
-Key creation times in OpenPGP keys are represented as 32-bit unix timestamps. We can save a bit more space by reducing the size of the key creation timestamp slightly. We don't need a full 32-bits of precision, since a very large chunk of time since the unix epoch on `1970-01-01` has already passed, and Mnemonikey was invented in 2022. If we define our own epoch, we can easily trim down to 30 bits of precision, while retaining perfect second-level accuracy, and supporting key creation times until `2056-01-10`. Hopefully by then, people will have adopted more advanced cryptography tools than PGP.
+Key creation times in OpenPGP keys are represented as 32-bit unix timestamps. We can save a bit more space by reducing the size of the key creation timestamp slightly. We don't need a full 32-bits of precision, since a very large chunk of time since the unix epoch on `1970-01-01` has already passed, and Mnemonikey was invented in 2022. If we define our own epoch, we can easily trim down to 31 bits of precision, while retaining perfect second-level accuracy, and supporting key creation times until `2090-01-18`. Hopefully by then, people will have adopted more advanced cryptography tools than PGP.
 
 We could reduce the size of the key creation timestamp much more by sacrificing timestamp granularity. If we were OK with per-day accuracy only, we could reduce the creation offset integer's size to 15-bits of precision, but this comes at the cost of privacy: Keys created with such granularity in their timestamp could be easily identified as having come from Mnemonikey.
 
@@ -323,9 +323,9 @@ For PGP keys this concern is not terribly relevant. If Eve wishes to attack Bob'
 
 ## Encoding
 
-Each word in a recovery phrase is one of 2048 ( $2^{11}$ ) different words, and thus encodes 11 bits of information. To encode a recovery phrase, we need to store both the entropy (128 bits) and the key creation time offset from the epoch (30 bits). $128 + 30 = 158$ and $\frac{158}{11} = 14\frac{4}{11}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 15 words, leaving 7 unused bits.
+Each word in a recovery phrase is one of 2048 ( $2^{11}$ ) different words, and thus encodes 11 bits of information. To encode a recovery phrase, we need to store both the entropy (128 bits) and the key creation time offset from the epoch (31 bits). $128 + 31 = 159$ and $\frac{159}{11} = 14\frac{5}{11}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 15 words, leaving 6 unused bits.
 
-These last 7 bits can be used for a checksum to ensure Mnemonikey implementations can confirm at a glance whether a user has entered the recovery phrase correctly.
+These last 6 bits can be used for a checksum to ensure Mnemonikey implementations can confirm at a glance whether a user has entered the recovery phrase correctly.
 
 This diagram demonstrates the **bit-level layout** of each word in the mnemonic, and how it encodes the backup payload and checksum. Each number from `0` to `a` (10) is an index of each of the 11 bits encoded by a word in the mnemonic.
 
@@ -345,20 +345,22 @@ This diagram demonstrates the **bit-level layout** of each word in the mnemonic,
  0 1 2 3 4 5 6 7 8 9 a 0 1 2 3 4 5 6 7 8 9 a 0 1 2 3 4 5 6 7 8 9 a 0 1 2 3 4 5 6 7 8 9 a
 
 
--- entropy ---|-------------------- creation timestamp -------------------|- check-sum -|
+-- entropy ---|-------------------- creation timestamp ---------------------| check-sum |
 |------- word 12 -----|------- word 13 -----|------- word 14 -----|------- word 15 -----|
  0 1 2 3 4 5 6 7 8 9 a 0 1 2 3 4 5 6 7 8 9 a 0 1 2 3 4 5 6 7 8 9 a 0 1 2 3 4 5 6 7 8 9 a
 ```
 
 ## Checksum
 
-Words in a recovery phrase must already be members of the BIP39 wordlist to be considered valid, but on the off-chance a user enters another valid but incorrect word, a 7-bit checksum will provide error detection with a collision probability of roughly $\frac{1}{128}$. With a word list of 2048 valid words, that means there are only 16 possible collision-causing 1-word substitutions which the user could accidentally perform for each word in the phrase.
+Words in a recovery phrase must already be members of the BIP39 wordlist to be considered valid, but on the off-chance a user enters another valid but incorrect word, a 6-bit checksum will provide error detection with a collision probability of roughly $\frac{1}{128}$. With a word list of 2048 valid words, that means there are only 16 possible collision-causing 1-word substitutions which the user could accidentally perform for each word in the phrase.
 
 We chose to use 32-bit [cyclic-redundancy-checks](https://en.wikipedia.org/wiki/Cyclic_redundancy_check) (CRC-32) with the IEEE generator polynomial as our checksum, because of its speed and ubiquitous availability. There are cross-compatible implementations available in the standard libraries of most programming languages, and numerous test vectors available should anyone need to re-implement it.
 
 ## Acknowledgements
 
 Thanks to Chris Wellons (@skeeto) and [his awesome tool, `passphrase2pgp`](https://github.com/skeeto/passphrase2pgp) for inspiring me, and serving as a helpful reference for how PGP keys are serialized into packets.
+
+Thanks to fellow PGP nerd Ryan Zimmerman (@ryanzim) for jamming with me to draft the specification.
 
 ## Donations
 
