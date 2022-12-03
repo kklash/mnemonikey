@@ -18,7 +18,7 @@ var ErrInvalidChecksum = errors.New("failed to validate checksum embedded in mne
 // phrase whose word count is not MnemonicSize.
 var ErrInvalidWordCount = fmt.Errorf("mnemonics must be %d words long", MnemonicSize)
 
-// RecoverKeyPair decodes a seed and creation offset from the given recovery mnemonic and
+// Recover decodes a seed and creation offset from the given recovery mnemonic and
 // re-derives its child PGP keys.
 //
 // The given name and email must be the same as was used to originally generate the key,
@@ -27,18 +27,18 @@ var ErrInvalidWordCount = fmt.Errorf("mnemonics must be %d words long", Mnemonic
 // If the original key's user ID is not a standard RFC-2822 mail name-addr format (NAME <EMAIL>),
 // then simply provide the entire user ID as the name parameter, and leave the email parameter
 // empty.
-func RecoverKeyPair(words []string, name, email string, expiry time.Time) (*DeterministicKeyPair, error) {
+func Recover(words []string, name, email string, expiry time.Time) (*Mnemonikey, error) {
 	seed, creationOffset, err := DecodeMnemonic(words)
 	if err != nil {
 		return nil, err
 	}
 
-	keyPair, err := NewDeterministicKeyPair(seed, name, email, creationOffset, expiry)
+	mnk, err := New(seed, name, email, creationOffset, expiry)
 	if err != nil {
-		return nil, fmt.Errorf("failed to recover key pair from decoded mnemonic: %w", err)
+		return nil, fmt.Errorf("failed to recover key from decoded mnemonic: %w", err)
 	}
 
-	return keyPair, nil
+	return mnk, nil
 }
 
 // DecodeMnemonic decodes a recovery mnemonic into the embedded Seed data
@@ -65,7 +65,7 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 	// Confirm checksum is correct.
 	payloadBitCount := mnemonic.BitsPerWord*uint(len(words)) - ChecksumBitCount
 	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
-	checksum := checksumMask & crc32.Checksum(payloadBytes, checksumTable)
+	checksum := checksumMask & crc32.ChecksumIEEE(payloadBytes)
 	if checksum != expectedChecksum {
 		err = ErrInvalidChecksum
 		return
