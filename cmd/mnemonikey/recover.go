@@ -9,9 +9,16 @@ import (
 	"github.com/kklash/mnemonikey"
 )
 
+const maxSubkeyIndex uint = 0xFFFF
+
 type RecoverOptions struct {
-	Common      GenerateRecoverOptions
-	SimpleInput bool
+	Common       GenerateRecoverOptions
+	SimpleInput  bool
+	OnlyKeyTypes string
+
+	EncryptionSubkeyIndex     uint
+	AuthenticationSubkeyIndex uint
+	SigningSubkeyIndex        uint
 }
 
 var RecoverCommand = &Command[RecoverOptions]{
@@ -20,9 +27,13 @@ var RecoverCommand = &Command[RecoverOptions]{
 	UsageExamples: []string{
 		"mnemonikey recover",
 		"mnemonikey recover -name myuser",
-		"mnemonikey recover -name myuser -email someone@someplace.com",
+		"mnemonikey recover -name=myuser -email someone@someplace.com",
+		"mnemonikey recover -name myuser -enc-index 3 -auth-index=2",
+		"mnemonikey recover -name myuser -only master",
+		"mnemonikey recover -name myuser -enc-index 3 -only master,encryption",
+		"mnemonikey recover -name myuser -auth-index 12 -only authentication",
 		"mnemonikey recover -expiry 2y",
-		"mnemonikey recover -expiry 17w",
+		"mnemonikey recover -expiry=17w",
 		"mnemonikey recover -expiry 1679285000",
 		"mnemonikey recover -simple -name myuser",
 	},
@@ -39,6 +50,35 @@ var RecoverCommand = &Command[RecoverOptions]{
 					"input mode doesn't work on your system. (optional)",
 			),
 		)
+
+		flags.StringVar(
+			&opts.OnlyKeyTypes,
+			"only",
+			"",
+			justifyOptionDescription(
+				"Only output a subset of the complete key. A comma-delimited list of the "+
+					"following possible values:  master | encryption | signing | authentication",
+			),
+		)
+
+		flags.UintVar(
+			&opts.EncryptionSubkeyIndex,
+			"enc-index",
+			0,
+			justifyOptionDescription("The index of the encryption subkey which will be recovered."),
+		)
+		flags.UintVar(
+			&opts.AuthenticationSubkeyIndex,
+			"auth-index",
+			0,
+			justifyOptionDescription("The index of the authentication subkey which will be recovered."),
+		)
+		flags.UintVar(
+			&opts.SigningSubkeyIndex,
+			"sig-index",
+			0,
+			justifyOptionDescription("The index of the signing subkey which will be recovered."),
+		)
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {
 		return recoverAndPrintKey(opts)
@@ -46,17 +86,43 @@ var RecoverCommand = &Command[RecoverOptions]{
 }
 
 func recoverAndPrintKey(opts *RecoverOptions) error {
-	name := strings.TrimSpace(opts.Common.Name)
-	email := strings.TrimSpace(opts.Common.Email)
+	keyOptions := &mnemonikey.KeyOptions{
+		Name:                      strings.TrimSpace(opts.Common.Name),
+		Email:                     strings.TrimSpace(opts.Common.Email),
+		EncryptionSubkeyIndex:     uint16(opts.EncryptionSubkeyIndex),
+		AuthenticationSubkeyIndex: uint16(opts.AuthenticationSubkeyIndex),
+		SigningSubkeyIndex:        uint16(opts.SigningSubkeyIndex),
+	}
 
-	var (
-		expiry time.Time
-		err    error
-	)
+	var err error
 	if opts.Common.Expiry != "" {
-		expiry, err = parseExpiry(time.Now(), opts.Common.Expiry)
+		keyOptions.Expiry, err = parseExpiry(time.Now(), opts.Common.Expiry)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
+		}
+	}
+
+	if opts.EncryptionSubkeyIndex > maxSubkeyIndex ||
+		opts.AuthenticationSubkeyIndex > maxSubkeyIndex ||
+		opts.SigningSubkeyIndex > maxSubkeyIndex {
+		return fmt.Errorf("invalid subkey index; must be less than or equal to %d", maxSubkeyIndex)
+	}
+
+	outputMasterKey := true
+	if opts.OnlyKeyTypes != "" {
+		outputMasterKey = false
+		onlyKeyTypes := strings.Split(opts.OnlyKeyTypes, ",")
+		keyOptions.Subkeys = make([]mnemonikey.SubkeyType, 0, len(onlyKeyTypes))
+		for _, keyType := range onlyKeyTypes {
+			if keyType == "master" {
+				outputMasterKey = true
+			} else if keyType == string(mnemonikey.SubkeyTypeEncryption) ||
+				keyType == string(mnemonikey.SubkeyTypeAuthentication) ||
+				keyType == string(mnemonikey.SubkeyTypeSigning) {
+				keyOptions.Subkeys = append(keyOptions.Subkeys, mnemonikey.SubkeyType(keyType))
+			} else {
+				return fmt.Errorf("%w: unknown -only list element %q", ErrPrintUsage, keyType)
+			}
 		}
 	}
 
@@ -70,7 +136,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return err
 	}
 
-	mnk, err := mnemonikey.Recover(words, name, email, expiry)
+	mnk, err := mnemonikey.Recover(words, keyOptions)
 	if err != nil {
 		return fmt.Errorf("failed to re-derive PGP keys: %w", err)
 	}
@@ -83,7 +149,12 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		}
 	}
 
-	pgpArmorKey, err := mnk.EncodePGPArmor(password)
+	var pgpArmorKey string
+	if outputMasterKey {
+		pgpArmorKey, err = mnk.EncodePGPArmor(password)
+	} else {
+		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password)
+	}
 	if err != nil {
 		return err
 	}

@@ -73,6 +73,11 @@ func NewCurve25519Subkey(
 	return key, nil
 }
 
+// FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
+func (key *Curve25519Subkey) FingerprintV4() []byte {
+	return key.base.FingerprintV4()
+}
+
 // EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
 func (key *Curve25519Subkey) EncodePublicSubkeyPacket() []byte {
 	return EncodePacket(PacketTagPublicSubkey, key.base.encodePublic())

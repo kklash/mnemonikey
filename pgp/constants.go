@@ -18,6 +18,11 @@ const (
 	// can support.
 	s2kCountMaximum byte = 0xFF
 
+	// s2kExtensionGNUDummy is an extension used for encoding private key stubs.
+	// This is used to export private subkeys without the master private key.
+	s2kExtensionGNUDummy byte = 101
+	s2kGNUExtensionID         = "GNU"
+
 	// These prefixes are prepended before data to be hashed, usually to ensure hash
 	// preimage namespacing.
 	publicKeyPrefixV4 byte = 0x99

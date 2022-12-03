@@ -15,6 +15,15 @@ import (
 	"github.com/kklash/mnemonikey/pgp"
 )
 
+// SubkeyType represents a flavor of subkey, either encryption, authentication, or signing.
+type SubkeyType string
+
+const (
+	SubkeyTypeEncryption     SubkeyType = "encryption"
+	SubkeyTypeAuthentication SubkeyType = "authentication"
+	SubkeyTypeSigning        SubkeyType = "signing"
+)
+
 // ErrExpiryTooEarly is returned when constructing a Mnemonikey, if its creation
 // and expiry times are conflicting.
 var ErrExpiryTooEarly = errors.New("expiry time predates key creation offset")
@@ -45,14 +54,11 @@ type Mnemonikey struct {
 //
 // The user ID parameters, name and email, are not required but are highly recommended
 // to assist in identifying the key later.
-func New(
-	seed *Seed,
-	name string,
-	email string,
-	creation time.Time,
-	expiry time.Time,
-) (*Mnemonikey, error) {
-	if !expiry.IsZero() && creation.After(expiry) {
+func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) {
+	if opts == nil {
+		opts = new(KeyOptions)
+	}
+	if !opts.Expiry.IsZero() && creation.After(opts.Expiry) {
 		return nil, ErrExpiryTooEarly
 	}
 	if creation.After(MaxCreationTime) {
@@ -65,7 +71,7 @@ func New(
 	creationOffset := creation.Sub(EpochStart) / EpochIncrement
 	creation = EpochStart.Add(EpochIncrement * creationOffset)
 
-	pgpKeySet, err := derivePGPKeySet(seed.Bytes(), name, email, creation, expiry)
+	pgpKeySet, err := derivePGPKeySet(seed.Bytes(), creation, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -90,15 +96,79 @@ func (mnk *Mnemonikey) FingerprintV4() []byte {
 	return mnk.pgpKeySet.MasterKey.FingerprintV4()
 }
 
-// EncodePGP encodes the Mnemonikey as a series of binary OpenPGP packets.
+// FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
+//
+// Returns nil if the Mnemonikey was created without the given subkey.
+func (mnk *Mnemonikey) SubkeyFingerprintV4(subkeyType SubkeyType) []byte {
+	switch subkeyType {
+	case SubkeyTypeEncryption:
+		if mnk.pgpKeySet.EncryptionSubkey != nil {
+			return mnk.pgpKeySet.EncryptionSubkey.FingerprintV4()
+		}
+
+	case SubkeyTypeAuthentication:
+		if mnk.pgpKeySet.AuthenticationSubkey != nil {
+			return mnk.pgpKeySet.AuthenticationSubkey.FingerprintV4()
+		}
+
+	case SubkeyTypeSigning:
+		if mnk.pgpKeySet.SigningSubkey != nil {
+			return mnk.pgpKeySet.SigningSubkey.FingerprintV4()
+		}
+	}
+	return nil
+}
+
+// EncodePGP encodes the entire Mnemonikey as a series of binary OpenPGP packets.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
 func (mnk *Mnemonikey) EncodePGP(password []byte) ([]byte, error) {
 	return mnk.pgpKeySet.EncodePackets(password)
 }
 
-// EncodePGP encodes the Mnemonikey as a series of OpenPGP packets and formats
-// them an ASCII armor block format.
+// EncodeSubkeysPGP encodes the Mnemonikey as a series of binary OpenPGP packets,
+// but only includes the private key material for subkeys. The master key is
+// encoded as a private key stub without providing the private key material itself.
+//
+// To use the output of this method, the caller is presumed to already have the
+// master key, so the self-certification signature is not provided.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
+func (mnk *Mnemonikey) EncodeSubkeysPGP(password []byte) ([]byte, error) {
+	return mnk.pgpKeySet.EncodeSubkeyPackets(password)
+}
+
+// EncodePGPArmor encodes the entire Mnemonikey as a series of OpenPGP packets
+// and formats them to ASCII armor block format.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
 func (mnk *Mnemonikey) EncodePGPArmor(password []byte) (string, error) {
 	keyPacketData, err := mnk.pgpKeySet.EncodePackets(password)
+	if err != nil {
+		return "", err
+	}
+	pgpArmorKey, err := armorEncode(openpgp.PrivateKeyType, keyPacketData)
+	if err != nil {
+		return "", err
+	}
+	return pgpArmorKey, nil
+}
+
+// EncodeSubkeysPGPArmor encodes the Mnemonikey as a series of OpenPGP packets
+// formatted to ASCII armor block format, but only includes the private key
+// material for subkeys. The master key is encoded as a private key stub
+// without providing the private key material itself.
+//
+// To use the output of this method, the caller is presumed to already have the
+// master key, so the self-certification signature is not provided.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
+func (mnk *Mnemonikey) EncodeSubkeysPGPArmor(password []byte) (string, error) {
+	keyPacketData, err := mnk.EncodeSubkeysPGP(password)
 	if err != nil {
 		return "", err
 	}
