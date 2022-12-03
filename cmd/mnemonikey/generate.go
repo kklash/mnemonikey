@@ -28,6 +28,7 @@ var GenerateCommand = &Command[GenerateOptions]{
 		"mnemonikey generate",
 		"mnemonikey generate -name username",
 		"mnemonikey generate -name username -email bob@hotmail.com",
+		"mnemonikey generate -name username -only master,encryption",
 		"mnemonikey generate -expiry 2y",
 		"mnemonikey generate -expiry 17w",
 		"mnemonikey generate -expiry 1679285000",
@@ -75,6 +76,12 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
+	outputMasterKey, subkeyTypes, err := opts.Common.DecodeOnlyKeyTypes()
+	if err != nil {
+		return err
+	}
+	keyOptions.Subkeys = subkeyTypes
+
 	seed, err := mnemonikey.GenerateSeed(rand.Reader)
 	if err != nil {
 		return err
@@ -93,7 +100,12 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	pgpArmorKey, err := mnk.EncodePGPArmor(password)
+	var pgpArmorKey string
+	if outputMasterKey {
+		pgpArmorKey, err = mnk.EncodePGPArmor(password)
+	} else {
+		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password)
+	}
 	if err != nil {
 		return err
 	}
