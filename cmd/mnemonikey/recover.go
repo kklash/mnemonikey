@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/kklash/mnemonikey"
+	"github.com/kklash/mnemonikey/mnemonic"
 )
 
 const maxSubkeyIndex uint = 0xFFFF
@@ -15,6 +18,7 @@ type RecoverOptions struct {
 	Common       GenerateRecoverOptions
 	SimpleInput  bool
 	OnlyKeyTypes string
+	WordFile     string
 
 	EncryptionSubkeyIndex     uint
 	AuthenticationSubkeyIndex uint
@@ -58,6 +62,16 @@ var RecoverCommand = &Command[RecoverOptions]{
 			justifyOptionDescription(
 				"Only output a subset of the complete key. A comma-delimited list of the "+
 					"following possible values:  master | encryption | signing | authentication",
+			),
+		)
+
+		flags.StringVar(
+			&opts.WordFile,
+			"word-file",
+			"",
+			justifyOptionDescription(
+				"Read the words of the mnemonic from this `file`. Words should be separated by "+
+					"whitespace and the file should contain the exact 15 words. Useful for debugging.",
 			),
 		)
 
@@ -127,7 +141,9 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	}
 
 	var words []string
-	if opts.SimpleInput {
+	if opts.WordFile != "" {
+		words, err = readWordFile(opts.WordFile)
+	} else if opts.SimpleInput {
 		words, err = userInputMnemonicSimple(mnemonikey.MnemonicSize)
 	} else {
 		words, err = userInputMnemonic(mnemonikey.MnemonicSize)
@@ -166,4 +182,26 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	eprint(colorEnd)
 
 	return nil
+}
+
+func readWordFile(fpath string) ([]string, error) {
+	file, err := os.Open(fpath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanWords)
+	words := make([]string, 0, mnemonikey.MnemonicSize)
+	for scanner.Scan() {
+		word := strings.ToLower(scanner.Text())
+		if _, ok := mnemonic.WordMap[word]; !ok {
+			return nil, fmt.Errorf("found word in %s not present in wordlist", fpath)
+		}
+		words = append(words, word)
+	}
+	if len(words) != int(mnemonikey.MnemonicSize) {
+		return nil, fmt.Errorf("found only %d words in word file %s", len(words), fpath)
+	}
+	return words, nil
 }

@@ -2,8 +2,11 @@ package main
 
 import (
 	"crypto/rand"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,7 +17,8 @@ import (
 var DefaultName = "anonymous"
 
 type GenerateOptions struct {
-	Common GenerateRecoverOptions
+	Common   GenerateRecoverOptions
+	WordFile string
 }
 
 var GenerateCommand = &Command[GenerateOptions]{
@@ -30,6 +34,17 @@ var GenerateCommand = &Command[GenerateOptions]{
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
 		opts.Common.AddFlags(flags)
+
+		flags.StringVar(
+			&opts.WordFile,
+			"word-file",
+			"",
+			justifyOptionDescription(
+				"Write the words of the recovery mnemonic to this `file` in PLAIN TEXT. Do not use this if you "+
+					"care about keeping your keys safe. Words will be separated by a single space and the "+
+					"file will contain the exact 15 words and nothing else. Useful for debugging.",
+			),
+		)
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {
 		return generateAndPrintKey(opts)
@@ -51,6 +66,12 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		keyOptions.Expiry, err = parseExpiry(creation, opts.Common.Expiry)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
+		}
+	}
+
+	if opts.WordFile != "" {
+		if _, err := os.Stat(opts.WordFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("refused to write word-file to %s: file already exists", opts.WordFile)
 		}
 	}
 
@@ -82,6 +103,13 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
+	if opts.WordFile != "" {
+		wordFileContent := strings.Join(recoveryMnemonic, " ") + "\n"
+		if err := os.WriteFile(opts.WordFile, []byte(wordFileContent), 0600); err != nil {
+			return fmt.Errorf("failed to write words to file: %w", err)
+		}
+	}
+
 	eprintf("Generated OpenPGP private key with %d bits of entropy.\n", mnemonikey.EntropyBitCount)
 	eprintf("Key fingerprint: %X\n", mnk.FingerprintV4())
 	eprintln(magentaStart)
@@ -90,14 +118,16 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 
 	// TODO print debug info about key
 
-	eprint("This is the mnemonic phrase which can be used to recover the private key:\n\n")
-	printMnemonic(recoveryMnemonic)
-	eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
-	eprint(
-		underline(
-			"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
-		),
-	)
+	if opts.WordFile == "" {
+		eprint("This is the mnemonic phrase which can be used to recover the private key:\n\n")
+		printMnemonic(recoveryMnemonic)
+		eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
+		eprint(
+			underline(
+				"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
+			),
+		)
+	}
 
 	return nil
 }
