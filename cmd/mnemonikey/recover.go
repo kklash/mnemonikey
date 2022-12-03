@@ -70,9 +70,9 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return err
 	}
 
-	keyPair, err := mnemonikey.RecoverKeyPair(words, name, email, expiry)
+	mnk, err := mnemonikey.Recover(words, name, email, expiry)
 	if err != nil {
-		return fmt.Errorf("failed to re-derive key pair: %w", err)
+		return fmt.Errorf("failed to re-derive PGP keys: %w", err)
 	}
 
 	var password []byte
@@ -83,13 +83,13 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		}
 	}
 
-	pgpArmorKey, err := keyPair.EncodePGPArmor(password)
+	pgpArmorKey, err := mnk.EncodePGPArmor(password)
 	if err != nil {
 		return err
 	}
 
 	// TODO print debug data about derived key, Key ID, etc.
-	eprintf("Re-derived OpenPGP key with fingerprint %X\n\n", keyPair.FingerprintV4())
+	eprintf("Re-derived OpenPGP key with fingerprint %X\n\n", mnk.FingerprintV4())
 	eprint(magentaStart)
 	fmt.Println(pgpArmorKey)
 	eprint(colorEnd)

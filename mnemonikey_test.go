@@ -51,7 +51,7 @@ func NewGPG(homeDir string) (*GPG, error) {
 	return gpg, nil
 }
 
-func TestDeterministicKeyPair(t *testing.T) {
+func TestMnemonikey(t *testing.T) {
 	gpg, err := NewGPG(t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to instantiate GPG: %s", err)
@@ -72,37 +72,36 @@ func TestDeterministicKeyPair(t *testing.T) {
 	now := time.Unix(1668576000, 0)
 	fingerprint := "1645C5A88E4F3DCE2F377B40448CD7DD554FFBCB"
 
-	keyPair, err := NewDeterministicKeyPair(seed, name, email, now, time.Time{})
+	mnk, err := New(seed, name, email, now, time.Time{})
 	if err != nil {
-		t.Fatalf("failed to derive DeterministicKeyPair: %s", err)
+		t.Fatalf("failed to derive Mnemonikey: %s", err)
 	}
 
-	words, err := keyPair.EncodeMnemonic()
+	words, err := mnk.EncodeMnemonic()
 	if err != nil {
-		t.Fatalf("failed to encode key pair mnemonic: %s", err)
+		t.Fatalf("failed to encode key as mnemonic: %s", err)
 	}
 
-	recoveredKeyPair, err := RecoverKeyPair(words, name, email, time.Time{})
+	recoveredKey, err := Recover(words, name, email, time.Time{})
 	if err != nil {
-		t.Fatalf("failed to derive recovered DeterministicKeyPair: %s", err)
+		t.Fatalf("failed to derive recovered Mnemonikey: %s", err)
 	}
 
 	t.Run("fingerprint matches", func(t *testing.T) {
-		if actualFpr := fmt.Sprintf("%X", keyPair.FingerprintV4()); actualFpr != fingerprint {
+		if actualFpr := fmt.Sprintf("%X", mnk.FingerprintV4()); actualFpr != fingerprint {
 			t.Fatalf("fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
 		}
-		if actualFpr := fmt.Sprintf("%X", recoveredKeyPair.FingerprintV4()); actualFpr != fingerprint {
+		if actualFpr := fmt.Sprintf("%X", recoveredKey.FingerprintV4()); actualFpr != fingerprint {
 			t.Fatalf("recovered key fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
 		}
 	})
 
 	t.Run("exporting to OpenPGP and importing into GPG", func(t *testing.T) {
 		gpgs := []*GPG{gpg, recoveredGPG}
-		keyPairs := []*DeterministicKeyPair{keyPair, recoveredKeyPair}
 
-		for i, kp := range keyPairs {
+		for i, kp := range []*Mnemonikey{mnk, recoveredKey} {
 			gpg := gpgs[i]
-			description := "DeterministicKeyPair"
+			description := "Mnemonikey"
 			if i == 1 {
 				description = "recovered " + description
 			}
@@ -164,7 +163,7 @@ func TestDeterministicKeyPair(t *testing.T) {
 		wordsBad := append([]string{}, words...)
 		wordsBad[4] = "hurt"
 
-		if _, err := RecoverKeyPair(wordsBad, name, email, time.Time{}); !errors.Is(err, ErrInvalidChecksum) {
+		if _, err := Recover(wordsBad, name, email, time.Time{}); !errors.Is(err, ErrInvalidChecksum) {
 			t.Fatalf("expected to get ErrInvalidChecksum when mnemonic was corrupted, got: %s", err)
 		}
 	})

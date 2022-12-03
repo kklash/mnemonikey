@@ -58,7 +58,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	keyPair, err := mnemonikey.NewDeterministicKeyPair(seed, name, email, creation, expiry)
+	mnk, err := mnemonikey.New(seed, name, email, creation, expiry)
 	if err != nil {
 		return err
 	}
@@ -71,18 +71,18 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	pgpArmorKey, err := keyPair.EncodePGPArmor(password)
+	pgpArmorKey, err := mnk.EncodePGPArmor(password)
 	if err != nil {
 		return err
 	}
 
-	recoveryMnemonic, err := keyPair.EncodeMnemonic()
+	recoveryMnemonic, err := mnk.EncodeMnemonic()
 	if err != nil {
 		return err
 	}
 
 	eprintf("Generated OpenPGP private key with %d bits of entropy.\n", mnemonikey.EntropyBitCount)
-	eprintf("Key fingerprint: %X\n", keyPair.FingerprintV4())
+	eprintf("Key fingerprint: %X\n", mnk.FingerprintV4())
 	eprintln(magentaStart)
 	fmt.Println(pgpArmorKey)
 	eprintln(colorEnd)
