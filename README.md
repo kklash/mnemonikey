@@ -319,15 +319,45 @@ We chose ED25519 as the elliptic curve for the output PGP keys because:
 - It is usable for signing, encryption, and authentication with SSH.
 - Golang has first-class ED25519 and Curve25519 implementations available.
 
+## Subkey Lifecycle
+
+To allow cycling of subkeys, Mnemonikey can derive each type of subkey at any arbitrary index from 0 to 65535 (`0xFFFF`). Subkeys are always derived in parallel from the seed and not from one-another. The only way to derive a new subkey is to use the seed embedded in the recovery phrase.
+
+<img src="https://user-images.githubusercontent.com/31221309/205461508-b95605a4-675f-49c9-b9d1-5d915e324a32.png">
+
+No subkey has any special preference or power over any other. When generated, any subkeys derived from the same seed will all have the same creation timestamp as the master key.
+
+The master key cannot be used to re-derive any Mnemonikey subkeys, although it could be used to sign new non-deterministically generated subkeys out-of-band and bind them to the same user ID. **We recommend not to do this,** because any subkeys generated outside of Mnemonikey **cannot be re-generated** with the Mnemonikey recovery phrase later.
+
+The normal use of subkeys involves revoking subkeys once they become compromised or outdated. To do this with Mnemonikey, one would revoke their old subkey at index $n$ using a downstream PGP tool (`gpg --edit uid` and type `revkey`). Then Mnemonikey can be used to generate a fresh subkey at index $n+1$. This derived subkey should be exported on its own, orphaned from the master key and other subkeys, and imported into the PGP keychain.
+
+### Example
+
+**Derive a new _signing_ subkey at index `1` with the `mnemonikey` CLI, and import it into a GPG keychain which already contains the related master key.**
+
+```cli
+$ mnemonikey recover -only signing -sig-index 1 -self-cert=false | gpg --import
+```
+
+#### Generate a master key and signing subkey (starts at default index 0).
+
+<img width="700" src="https://user-images.githubusercontent.com/31221309/205466128-53f94d4d-7a6d-445b-8e5e-76001b859b43.gif">
+
+#### Derive the new signing subkey at index 1, and revoke the old one at index 0.
+
+<img width="700" src="https://user-images.githubusercontent.com/31221309/205466129-8f9528e8-0ee8-49ec-9f98-3197d79bc103.gif">
+
+`-self-cert=false` is an optional flag which tells Mnemonikey not to output the master key's self-certification signature on the user ID. This is useful when minting new subkeys, in a situation where you already have the master key stored safely in your keyring.
+
 ## Security
 
-To derive the full set of four OpenPGP keys - the master key and the signing/encryption/authentication subkeys - we need a total of $256 \cdot 4 = 1024$ bits of secure key material. For this we use the [HMAC-based Key Derivation Function (HKDF)](https://www.rfc-editor.org/rfc/rfc5869) Expand function to expand a uniformly random _seed_ into four 32-byte private keys.
+To derive the full set of four OpenPGP keys - the master key and the signing/encryption/authentication subkeys - we need a total of $256 \cdot 4 = 1024$ bits of secure key material. For this we use the [HMAC-based Key Derivation Function (HKDF)](https://www.rfc-editor.org/rfc/rfc5869) Expand function to expand a uniformly random _seed_ into four 256-bit private keys.
 
-The Edwards 25519 curve has a security level of 128 bits for its public keys. Using _less_ than 128 bits of seed entropy would make keys more succeptible to brute-force attacks through guessing the seed than by guessing the key. Using _more_ than 128 bits of seed entropy to generate ED25519 keys doesn't add extra security to any one key, and would increase the size of the recovery phrase making it more difficult to write down or memorize. Thus, we use 128 bits as the quantity of entropy needed to create the set of four ED25519 OpenPGP keys.
+The Edwards 25519 curve has a security level of 128 bits for its public keys. Using _less_ than 128 bits of seed entropy would make keys more succeptible to brute-force attacks through guessing the seed than by guessing the key. Using _more_ than 128 bits of seed entropy to generate ED25519 keys doesn't add extra security to any one key, and would increase the size of the recovery phrase making it more difficult to write down or memorize. Thus, we use 128 bits as the quantity of entropy needed to create the full set of ED25519 OpenPGP keys.
 
-Note that because we only use _one seed_ to generate _four keys,_ it follows that anyone with the intent of brute-force attacking someone's PGP key would find more success in brute-force guessing the seed than in attempting to attack any of the four PGP public keys, because reversing a public key into a private key would only yield success for one of the four keys, whereas guessing the seed would be tantamount to a successful attack on the entire set of four keys all at once.
+Note that because we only use _one seed_ to generate _many keys,_ it follows that anyone with the intent of brute-force attacking someone's PGP key would find more success in brute-force guessing the seed than in attempting to attack any of the PGP public keys available to them, because reversing a public key into a private key would only yield success for one of the keys, whereas correctly guessing the seed would be tantamount to a successful attack on the entire set of keys all at once.
 
-For PGP keys this concern is not terribly relevant. If Eve wishes to attack Bob's PGP identity, she need only compute his master certification key, as this is the root of PGP trust. Eve could then impersonate Bob by revoking keys and issuing new ones as needed. If Eve could perform a batch-attack on all four keys at once, that would seem to be a minor improvement at best over an independent attack on the master certification key.
+For PGP keys this concern is not terribly relevant. If Eve wishes to attack Bob's PGP identity, she need only compute his master certification key, as this is the root of PGP trust. Eve could then impersonate Bob by revoking keys and issuing new ones as needed. If Eve could perform a batch-attack on all of the subkeys and the master key at once, that would seem to be a minor improvement at best over an independent attack on the master certification key.
 
 ## Encoding
 
