@@ -2,6 +2,7 @@ package mnemonikey
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"time"
@@ -11,28 +12,24 @@ import (
 	"github.com/kklash/mnemonikey/pgp"
 )
 
-const (
-	// KeyExpandInfoMaster is the string used as the 'info' parameter to the
-	// HDKF-Expand function when generating a master key from a seed.
-	KeyExpandInfoMaster = "mnemonikey master key"
+// keyExpandInfoMaster is the string used as the 'info' parameter to the
+// HDKF-Expand function when generating a master key from a seed.
+const keyExpandInfoMaster = "mnemonikey master key"
 
-	// KeyExpandInfoEncryption is the string used as the 'info' parameter to the
-	// HDKF-Expand function when generating an encryption subkey from a seed.
-	KeyExpandInfoEncryption = "mnemonikey encryption subkey"
-
-	// KeyExpandInfoAuthentication is the string used as the 'info' parameter to the
-	// HDKF-Expand function when generating an authentication subkey from a seed.
-	KeyExpandInfoAuthentication = "mnemonikey authentication subkey"
-
-	// KeyExpandInfoSigning is the string used as the 'info' parameter to the
-	// HDKF-Expand function when generating a signing subkey from a seed.
-	KeyExpandInfoSigning = "mnemonikey signing subkey"
-)
+// keyExpandInfoSubkey builds the HKDF-Expand function's "info" parameter, used
+// to derive a given PGP subkey based on the subkey's type and an index parameter.
+func keyExpandInfoSubkey(subkeyType SubkeyType, index uint16) []byte {
+	keyInfoPrefix := "mnemonikey " + subkeyType + " subkey"
+	info := make([]byte, len(keyInfoPrefix)+2)
+	copy(info, keyInfoPrefix)
+	binary.BigEndian.PutUint16(info[len(keyInfoPrefix):], index)
+	return info
+}
 
 // hkdfExpand expands the given seed into a key of the given size, scoped under info.
-func hkdfExpand(seedBytes []byte, size int, info string) ([]byte, error) {
+func hkdfExpand(seedBytes []byte, size int, info []byte) ([]byte, error) {
 	keyOutput := make([]byte, size)
-	keyReader := hkdf.Expand(sha256.New, seedBytes, []byte(info))
+	keyReader := hkdf.Expand(sha256.New, seedBytes, info)
 	if _, err := io.ReadFull(keyReader, keyOutput); err != nil {
 		return nil, err
 	}
@@ -44,8 +41,11 @@ func hkdfExpand(seedBytes []byte, size int, info string) ([]byte, error) {
 //
 // Sets the key's creation time to the given value. Sets the key's user ID
 // and expiry time to values given in the key options.
+//
+// The opts struct can also provide subkey indices which will cause different subkeys
+// to be generated.
 func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*pgp.KeySet, error) {
-	masterKeySeed, err := hkdfExpand(seedBytes, 32, KeyExpandInfoMaster)
+	masterKeySeed, err := hkdfExpand(seedBytes, 32, []byte(keyExpandInfoMaster))
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive master key from seed: %w", err)
 	}
@@ -54,7 +54,8 @@ func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*p
 		return nil, err
 	}
 
-	encryptionSubkeySeed, err := hkdfExpand(seedBytes, 32, KeyExpandInfoEncryption)
+	encKeyInfo := keyExpandInfoSubkey(SubkeyTypeEncryption, opts.EncryptionSubkeyIndex)
+	encryptionSubkeySeed, err := hkdfExpand(seedBytes, 32, encKeyInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive encryption subkey from seed: %w", err)
 	}
@@ -63,7 +64,8 @@ func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*p
 		return nil, err
 	}
 
-	authenticationSubkeySeed, err := hkdfExpand(seedBytes, 32, KeyExpandInfoAuthentication)
+	authKeyInfo := keyExpandInfoSubkey(SubkeyTypeAuthentication, opts.AuthenticationSubkeyIndex)
+	authenticationSubkeySeed, err := hkdfExpand(seedBytes, 32, authKeyInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive authentication subkey from seed: %w", err)
 	}
@@ -72,7 +74,8 @@ func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*p
 		return nil, err
 	}
 
-	signingSubkeySeed, err := hkdfExpand(seedBytes, 32, KeyExpandInfoSigning)
+	sigKeyInfo := keyExpandInfoSubkey(SubkeyTypeSigning, opts.SigningSubkeyIndex)
+	signingSubkeySeed, err := hkdfExpand(seedBytes, 32, sigKeyInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive signing subkey from seed: %w", err)
 	}

@@ -15,6 +15,15 @@ import (
 	"github.com/kklash/mnemonikey/pgp"
 )
 
+// SubkeyType represents a flavor of subkey, either encryption, authentication, or signing.
+type SubkeyType string
+
+const (
+	SubkeyTypeEncryption     SubkeyType = "encryption"
+	SubkeyTypeAuthentication SubkeyType = "authentication"
+	SubkeyTypeSigning        SubkeyType = "signing"
+)
+
 // ErrExpiryTooEarly is returned when constructing a Mnemonikey, if its creation
 // and expiry times are conflicting.
 var ErrExpiryTooEarly = errors.New("expiry time predates key creation offset")
@@ -43,6 +52,9 @@ type KeyOptions struct {
 	Name                      string
 	Email                     string
 	Expiry                    time.Time
+	EncryptionSubkeyIndex     uint16
+	AuthenticationSubkeyIndex uint16
+	SigningSubkeyIndex        uint16
 }
 
 // New constructs a Mnemonikey from a seed.
@@ -94,6 +106,19 @@ func (mnk *Mnemonikey) CreatedAt() time.Time {
 // FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
 func (mnk *Mnemonikey) FingerprintV4() []byte {
 	return mnk.pgpKeySet.MasterKey.FingerprintV4()
+}
+
+// FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
+func (mnk *Mnemonikey) SubkeyFingerprintV4(subkeyType SubkeyType) []byte {
+	switch subkeyType {
+	case SubkeyTypeEncryption:
+		return mnk.pgpKeySet.EncryptionSubkey.FingerprintV4()
+	case SubkeyTypeAuthentication:
+		return mnk.pgpKeySet.AuthenticationSubkey.FingerprintV4()
+	case SubkeyTypeSigning:
+		return mnk.pgpKeySet.SigningSubkey.FingerprintV4()
+	}
+	return nil
 }
 
 // EncodePGP encodes the Mnemonikey as a series of binary OpenPGP packets.

@@ -69,6 +69,7 @@ func TestMnemonikey(t *testing.T) {
 
 	now := time.Unix(1668576000, 0)
 	fingerprint := "1645C5A88E4F3DCE2F377B40448CD7DD554FFBCB"
+	encryptionSubkeyFingerprint := "F227EA1A4A4073D57AD1E1A000A9694282EC108B"
 	keyOpts := &KeyOptions{
 		Name:  "username",
 		Email: "user@domain.com",
@@ -95,6 +96,42 @@ func TestMnemonikey(t *testing.T) {
 		}
 		if actualFpr := fmt.Sprintf("%X", recoveredKey.FingerprintV4()); actualFpr != fingerprint {
 			t.Fatalf("recovered key fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
+		}
+
+		actualEncryptionSubkeyFingerprint := fmt.Sprintf("%X", mnk.SubkeyFingerprintV4(SubkeyTypeEncryption))
+		if actualEncryptionSubkeyFingerprint != encryptionSubkeyFingerprint {
+			t.Fatalf(
+				"encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
+				encryptionSubkeyFingerprint, actualEncryptionSubkeyFingerprint,
+			)
+		}
+
+		recoveredEncryptionSubkeyFingerprint := fmt.Sprintf("%X", recoveredKey.SubkeyFingerprintV4(SubkeyTypeEncryption))
+		if recoveredEncryptionSubkeyFingerprint != encryptionSubkeyFingerprint {
+			t.Fatalf(
+				"recovered encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
+				encryptionSubkeyFingerprint, recoveredEncryptionSubkeyFingerprint,
+			)
+		}
+	})
+
+	t.Run("subkey indices can be incremented", func(t *testing.T) {
+		incrementedKey, err := Recover(words, &KeyOptions{
+			Name:                  keyOpts.Name,
+			Email:                 keyOpts.Email,
+			EncryptionSubkeyIndex: 1,
+		})
+		if err != nil {
+			t.Fatalf("failed to derive recovered Mnemonikey with incremented encryption subkey: %s", err)
+		}
+
+		expectedFingerprint := "21981184981C44A67DDF5BE77A072FADCF2C640A"
+		actualFpr := fmt.Sprintf("%X", incrementedKey.SubkeyFingerprintV4(SubkeyTypeEncryption))
+		if actualFpr != expectedFingerprint {
+			t.Fatalf(
+				"incremented encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
+				expectedFingerprint, actualFpr,
+			)
 		}
 	})
 

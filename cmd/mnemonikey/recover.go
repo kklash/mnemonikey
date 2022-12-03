@@ -9,9 +9,15 @@ import (
 	"github.com/kklash/mnemonikey"
 )
 
+const maxSubkeyIndex uint = 0xFFFF
+
 type RecoverOptions struct {
 	Common      GenerateRecoverOptions
 	SimpleInput bool
+
+	EncryptionSubkeyIndex     uint
+	AuthenticationSubkeyIndex uint
+	SigningSubkeyIndex        uint
 }
 
 var RecoverCommand = &Command[RecoverOptions]{
@@ -20,9 +26,10 @@ var RecoverCommand = &Command[RecoverOptions]{
 	UsageExamples: []string{
 		"mnemonikey recover",
 		"mnemonikey recover -name myuser",
-		"mnemonikey recover -name myuser -email someone@someplace.com",
+		"mnemonikey recover -name=myuser -email someone@someplace.com",
+		"mnemonikey recover -name myuser -enc-index 3 -auth-index=2",
 		"mnemonikey recover -expiry 2y",
-		"mnemonikey recover -expiry 17w",
+		"mnemonikey recover -expiry=17w",
 		"mnemonikey recover -expiry 1679285000",
 		"mnemonikey recover -simple -name myuser",
 	},
@@ -39,6 +46,25 @@ var RecoverCommand = &Command[RecoverOptions]{
 					"input mode doesn't work on your system. (optional)",
 			),
 		)
+
+		flags.UintVar(
+			&opts.EncryptionSubkeyIndex,
+			"enc-index",
+			0,
+			justifyOptionDescription("The index of the encryption subkey which will be recovered."),
+		)
+		flags.UintVar(
+			&opts.AuthenticationSubkeyIndex,
+			"auth-index",
+			0,
+			justifyOptionDescription("The index of the authentication subkey which will be recovered."),
+		)
+		flags.UintVar(
+			&opts.SigningSubkeyIndex,
+			"sig-index",
+			0,
+			justifyOptionDescription("The index of the signing subkey which will be recovered."),
+		)
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {
 		return recoverAndPrintKey(opts)
@@ -47,8 +73,11 @@ var RecoverCommand = &Command[RecoverOptions]{
 
 func recoverAndPrintKey(opts *RecoverOptions) error {
 	keyOptions := &mnemonikey.KeyOptions{
-		Name:  strings.TrimSpace(opts.Common.Name),
-		Email: strings.TrimSpace(opts.Common.Email),
+		Name:                      strings.TrimSpace(opts.Common.Name),
+		Email:                     strings.TrimSpace(opts.Common.Email),
+		EncryptionSubkeyIndex:     uint16(opts.EncryptionSubkeyIndex),
+		AuthenticationSubkeyIndex: uint16(opts.AuthenticationSubkeyIndex),
+		SigningSubkeyIndex:        uint16(opts.SigningSubkeyIndex),
 	}
 
 	var err error
@@ -57,6 +86,12 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
+	}
+
+	if opts.EncryptionSubkeyIndex > maxSubkeyIndex ||
+		opts.AuthenticationSubkeyIndex > maxSubkeyIndex ||
+		opts.SigningSubkeyIndex > maxSubkeyIndex {
+		return fmt.Errorf("invalid subkey index; must be less than or equal to %d", maxSubkeyIndex)
 	}
 
 	var words []string
