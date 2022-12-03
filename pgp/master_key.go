@@ -59,7 +59,7 @@ func (key *ED25519MasterKey) FingerprintV4() []byte {
 }
 
 // EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
-func (key *ED25519MasterKey) EncodePublicSubkeyPacket() []byte {
+func (key *ED25519MasterKey) EncodePublicPacket() []byte {
 	return EncodePacket(PacketTagPublicKey, key.base.encodePublic())
 }
 
