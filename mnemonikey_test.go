@@ -67,12 +67,14 @@ func TestMnemonikey(t *testing.T) {
 		t.Fatalf("failed to generate seed: %s", err)
 	}
 
-	name := "username"
-	email := "user@domain.com"
 	now := time.Unix(1668576000, 0)
 	fingerprint := "1645C5A88E4F3DCE2F377B40448CD7DD554FFBCB"
+	keyOpts := &KeyOptions{
+		Name:  "username",
+		Email: "user@domain.com",
+	}
 
-	mnk, err := New(seed, name, email, now, time.Time{})
+	mnk, err := New(seed, now, keyOpts)
 	if err != nil {
 		t.Fatalf("failed to derive Mnemonikey: %s", err)
 	}
@@ -82,7 +84,7 @@ func TestMnemonikey(t *testing.T) {
 		t.Fatalf("failed to encode key as mnemonic: %s", err)
 	}
 
-	recoveredKey, err := Recover(words, name, email, time.Time{})
+	recoveredKey, err := Recover(words, keyOpts)
 	if err != nil {
 		t.Fatalf("failed to derive recovered Mnemonikey: %s", err)
 	}
@@ -129,7 +131,7 @@ func TestMnemonikey(t *testing.T) {
 
 	t.Run("signatures", func(t *testing.T) {
 		message := []byte("message to sign")
-		signature, err := recoveredGPG.Run(bytes.NewReader(message), "-u", name, "--sign")
+		signature, err := recoveredGPG.Run(bytes.NewReader(message), "-u", keyOpts.Name, "--sign")
 		if err != nil {
 			t.Fatalf("failed to sign message with recovered key: %s", err)
 		}
@@ -142,7 +144,7 @@ func TestMnemonikey(t *testing.T) {
 		plaintext := []byte("original message")
 		encryptedMessage, err := gpg.Run(
 			bytes.NewReader(plaintext),
-			"--recipient", name,
+			"--recipient", keyOpts.Name,
 			"--encrypt",
 		)
 		if err != nil {
@@ -163,7 +165,7 @@ func TestMnemonikey(t *testing.T) {
 		wordsBad := append([]string{}, words...)
 		wordsBad[4] = "hurt"
 
-		if _, err := Recover(wordsBad, name, email, time.Time{}); !errors.Is(err, ErrInvalidChecksum) {
+		if _, err := Recover(wordsBad, keyOpts); !errors.Is(err, ErrInvalidChecksum) {
 			t.Fatalf("expected to get ErrInvalidChecksum when mnemonic was corrupted, got: %s", err)
 		}
 	})

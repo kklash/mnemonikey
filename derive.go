@@ -42,13 +42,14 @@ func hkdfExpand(seedBytes []byte, size int, info string) ([]byte, error) {
 // derivePGPKeySet derives a pgp.KeySet by expanding the given seed using the
 // HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
 //
-// Sets the key's creation and expiry times to the given values.
-func derivePGPKeySet(seedBytes []byte, name, email string, creation, expiry time.Time) (*pgp.KeySet, error) {
+// Sets the key's creation time to the given value. Sets the key's user ID
+// and expiry time to values given in the key options.
+func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*pgp.KeySet, error) {
 	masterKeySeed, err := hkdfExpand(seedBytes, 32, KeyExpandInfoMaster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive master key from seed: %w", err)
 	}
-	masterKey, err := pgp.NewED25519MasterKey(masterKeySeed, creation, expiry)
+	masterKey, err := pgp.NewED25519MasterKey(masterKeySeed, creation, opts.Expiry)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func derivePGPKeySet(seedBytes []byte, name, email string, creation, expiry time
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive encryption subkey from seed: %w", err)
 	}
-	encryptionSubkey, err := pgp.NewCurve25519Subkey(encryptionSubkeySeed, creation, expiry, nil)
+	encryptionSubkey, err := pgp.NewCurve25519Subkey(encryptionSubkeySeed, creation, opts.Expiry, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func derivePGPKeySet(seedBytes []byte, name, email string, creation, expiry time
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive authentication subkey from seed: %w", err)
 	}
-	authenticationSubkey, err := pgp.NewED25519Subkey(authenticationSubkeySeed, creation, expiry)
+	authenticationSubkey, err := pgp.NewED25519Subkey(authenticationSubkeySeed, creation, opts.Expiry)
 	if err != nil {
 		return nil, err
 	}
@@ -75,15 +76,15 @@ func derivePGPKeySet(seedBytes []byte, name, email string, creation, expiry time
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive signing subkey from seed: %w", err)
 	}
-	signingSubkey, err := pgp.NewED25519Subkey(signingSubkeySeed, creation, expiry)
+	signingSubkey, err := pgp.NewED25519Subkey(signingSubkeySeed, creation, opts.Expiry)
 	if err != nil {
 		return nil, err
 	}
 
 	pgpKeySet := &pgp.KeySet{
 		UserID: &pgp.UserID{
-			Name:  name,
-			Email: email,
+			Name:  opts.Name,
+			Email: opts.Email,
 		},
 		MasterKey:            masterKey,
 		EncryptionSubkey:     encryptionSubkey,

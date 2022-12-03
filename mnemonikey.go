@@ -36,6 +36,15 @@ type Mnemonikey struct {
 	keyCreationTime time.Time
 }
 
+// KeyOptions are a set of optional parameters which can be supplied when generating
+// or recovering Mnemonikeys. They affect specific parameters in the output PGP keys
+// but are not needed to recover the private keys themselves.
+type KeyOptions struct {
+	Name                      string
+	Email                     string
+	Expiry                    time.Time
+}
+
 // New constructs a Mnemonikey from a seed.
 //
 // The key creation timestamp is hashed when computing the PGP public key fingerprint,
@@ -45,14 +54,11 @@ type Mnemonikey struct {
 //
 // The user ID parameters, name and email, are not required but are highly recommended
 // to assist in identifying the key later.
-func New(
-	seed *Seed,
-	name string,
-	email string,
-	creation time.Time,
-	expiry time.Time,
-) (*Mnemonikey, error) {
-	if !expiry.IsZero() && creation.After(expiry) {
+func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) {
+	if opts == nil {
+		opts = new(KeyOptions)
+	}
+	if !opts.Expiry.IsZero() && creation.After(opts.Expiry) {
 		return nil, ErrExpiryTooEarly
 	}
 	if creation.After(MaxCreationTime) {
@@ -65,7 +71,7 @@ func New(
 	creationOffset := creation.Sub(EpochStart) / EpochIncrement
 	creation = EpochStart.Add(EpochIncrement * creationOffset)
 
-	pgpKeySet, err := derivePGPKeySet(seed.Bytes(), name, email, creation, expiry)
+	pgpKeySet, err := derivePGPKeySet(seed.Bytes(), creation, opts)
 	if err != nil {
 		return nil, err
 	}

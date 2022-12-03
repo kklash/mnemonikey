@@ -27,13 +27,13 @@ var ErrInvalidWordCount = fmt.Errorf("mnemonics must be %d words long", Mnemonic
 // If the original key's user ID is not a standard RFC-2822 mail name-addr format (NAME <EMAIL>),
 // then simply provide the entire user ID as the name parameter, and leave the email parameter
 // empty.
-func Recover(words []string, name, email string, expiry time.Time) (*Mnemonikey, error) {
-	seed, creationOffset, err := DecodeMnemonic(words)
+func Recover(words []string, opts *KeyOptions) (*Mnemonikey, error) {
+	seed, creation, err := DecodeMnemonic(words)
 	if err != nil {
 		return nil, err
 	}
 
-	mnk, err := New(seed, name, email, creationOffset, expiry)
+	mnk, err := New(seed, creation, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to recover key from decoded mnemonic: %w", err)
 	}

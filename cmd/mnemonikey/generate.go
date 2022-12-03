@@ -37,17 +37,18 @@ var GenerateCommand = &Command[GenerateOptions]{
 }
 
 func generateAndPrintKey(opts *GenerateOptions) error {
-	name := strings.TrimSpace(opts.Common.Name)
-	email := strings.TrimSpace(opts.Common.Email)
+	keyOptions := &mnemonikey.KeyOptions{
+		Name:  strings.TrimSpace(opts.Common.Name),
+		Email: strings.TrimSpace(opts.Common.Email),
+	}
 
 	var (
 		creation = time.Now()
-		expiry   time.Time
 		err      error
 	)
 
 	if opts.Common.Expiry != "" {
-		expiry, err = parseExpiry(creation, opts.Common.Expiry)
+		keyOptions.Expiry, err = parseExpiry(creation, opts.Common.Expiry)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
@@ -58,7 +59,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	mnk, err := mnemonikey.New(seed, name, email, creation, expiry)
+	mnk, err := mnemonikey.New(seed, creation, keyOptions)
 	if err != nil {
 		return err
 	}

@@ -46,15 +46,14 @@ var RecoverCommand = &Command[RecoverOptions]{
 }
 
 func recoverAndPrintKey(opts *RecoverOptions) error {
-	name := strings.TrimSpace(opts.Common.Name)
-	email := strings.TrimSpace(opts.Common.Email)
+	keyOptions := &mnemonikey.KeyOptions{
+		Name:  strings.TrimSpace(opts.Common.Name),
+		Email: strings.TrimSpace(opts.Common.Email),
+	}
 
-	var (
-		expiry time.Time
-		err    error
-	)
+	var err error
 	if opts.Common.Expiry != "" {
-		expiry, err = parseExpiry(time.Now(), opts.Common.Expiry)
+		keyOptions.Expiry, err = parseExpiry(time.Now(), opts.Common.Expiry)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
@@ -70,7 +69,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return err
 	}
 
-	mnk, err := mnemonikey.Recover(words, name, email, expiry)
+	mnk, err := mnemonikey.Recover(words, keyOptions)
 	if err != nil {
 		return fmt.Errorf("failed to re-derive PGP keys: %w", err)
 	}
