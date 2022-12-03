@@ -23,44 +23,38 @@ func (opts *GenerateRecoverOptions) AddFlags(flags *flag.FlagSet) {
 		&opts.Name,
 		"name",
 		DefaultName,
-		justifyOptionDescription("Display name for the PGP key user identifier. (optional)"),
+		"Display name for the PGP key user identifier.",
 	)
 
 	flags.StringVar(
 		&opts.Email,
 		"email",
 		"",
-		justifyOptionDescription("Email for the PGP key user identifier. (optional)"),
+		"Email for the PGP key user identifier.",
 	)
 
 	flags.StringVar(
 		&opts.Expiry,
 		"expiry",
 		"",
-		justifyOptionDescription(
-			"Set an expiry `period` on the exported key. Can be a number denominated "+
-				"in days (d) weeks (w) months (m) or years (y) relative to the current "+
-				"time, such as \"24d\" or \"2y\", or an absolute unix timestamp number. (optional)",
-		),
+		"Set an expiry `period` on the exported key. Can be a number denominated "+
+			"in days (d) weeks (w) months (m) or years (y) relative to the current "+
+			"time, such as \"24d\" or \"2y\", or an absolute unix timestamp number.",
 	)
 
 	flags.BoolVar(
 		&opts.Encrypt,
 		"encrypt",
 		false,
-		justifyOptionDescription(
-			"Encrypt the derived PGP private keys with a password when exporting them. (optional)",
-		),
+		"Encrypt the derived PGP private keys with a password when exporting them.",
 	)
 
 	flags.StringVar(
 		&opts.OnlyKeyTypes,
 		"only",
 		"",
-		justifyOptionDescription(
-			"Only output a subset of the complete key as PGP packets. A comma-delimited list of "+
-				"the following possible values:  master | encryption | signing | authentication",
-		),
+		"Only output a subset key containing the given key `types` as PGP packets. A comma-delimited "+
+			"list of the following possible values:  master | encryption | signing | authentication",
 	)
 }
 

@@ -40,11 +40,9 @@ var GenerateCommand = &Command[GenerateOptions]{
 			&opts.WordFile,
 			"word-file",
 			"",
-			justifyOptionDescription(
-				"Write the words of the recovery mnemonic to this `file` in PLAIN TEXT. Do not use this if you "+
-					"care about keeping your keys safe. Words will be separated by a single space and the "+
-					"file will contain the exact 15 words and nothing else. Useful for debugging.",
-			),
+			"Write the words of the recovery phrase to this `file` in PLAIN TEXT. Useful for debugging. "+
+				"Do not use this if you care about keeping your keys safe. Words will be separated by a "+
+				"single space and the file will contain the exact 15 words and nothing else.",
 		)
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {

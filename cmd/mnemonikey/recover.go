@@ -47,40 +47,36 @@ var RecoverCommand = &Command[RecoverOptions]{
 			&opts.SimpleInput,
 			"simple",
 			false,
-			justifyOptionDescription(
-				"Revert to a simpler terminal input mechanism for entering the recovery "+
-					"phrase. Useful if the fancy terminal manipulation used by the default "+
-					"input mode doesn't work on your system. (optional)",
-			),
+			"Revert to a simpler terminal input mechanism for entering the recovery "+
+				"phrase. Useful if the fancy terminal manipulation used by the default "+
+				"input mode doesn't work on your system.",
 		)
 
 		flags.StringVar(
 			&opts.WordFile,
 			"word-file",
 			"",
-			justifyOptionDescription(
-				"Read the words of the mnemonic from this `file`. Words should be separated by "+
-					"whitespace and the file should contain the exact 15 words. Useful for debugging.",
-			),
+			"Read the words of the mnemonic from this `file`. Words should be separated by whitespace "+
+				"and the file should contain the exact 15 words. Useful for debugging.",
 		)
 
 		flags.UintVar(
 			&opts.EncryptionSubkeyIndex,
 			"enc-index",
 			0,
-			justifyOptionDescription("The index of the encryption subkey which will be recovered."),
+			"The `index` of the encryption subkey which will be recovered.",
 		)
 		flags.UintVar(
 			&opts.AuthenticationSubkeyIndex,
 			"auth-index",
 			0,
-			justifyOptionDescription("The index of the authentication subkey which will be recovered."),
+			"The `index` of the authentication subkey which will be recovered.",
 		)
 		flags.UintVar(
 			&opts.SigningSubkeyIndex,
 			"sig-index",
 			0,
-			justifyOptionDescription("The index of the signing subkey which will be recovered."),
+			"The `index` of the signing subkey which will be recovered.",
 		)
 	},
 	Execute: func(opts *RecoverOptions, args []string) error {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"reflect"
 )
 
 var (
@@ -33,25 +34,43 @@ func (cmd *Command[Options]) Run(args []string) error {
 
 	flags.Usage = func() {
 		out := flags.Output()
-		fmt.Fprintf(out, "%s\n\n", cmd.Name)
+		fmt.Fprintf(out, "%s\n\n", bold(cmd.Name))
 		if cmd.Description != "" {
 			fmt.Fprintf(out, "%s\n\n", justifyTerminalWidth(2, cmd.Description))
 		}
 		if len(cmd.UsageExamples) > 0 {
-			fmt.Fprintf(out, "Usage:\n")
+			fmt.Fprintln(out, bold("Usage:"))
 			for _, line := range cmd.UsageExamples {
 				fmt.Fprintf(out, "  %s\n", line)
 			}
 			fmt.Fprintf(out, "\n")
 		}
 
-		var hasFlags bool
-		flags.VisitAll(func(_ *flag.Flag) { hasFlags = true })
-		if hasFlags {
-			fmt.Fprintf(out, "Options:\n")
-			flags.PrintDefaults()
-			fmt.Fprintln(out)
-		}
+		var printedHeader bool
+		flags.VisitAll(func(f *flag.Flag) {
+			if !printedHeader {
+				printedHeader = true
+				fmt.Fprintln(out, bold("Options:"))
+			}
+
+			name, usage := flag.UnquoteUsage(f)
+
+			fmt.Fprint(out, fmt.Sprintf("  %s %s\n", bold(magenta("-"+f.Name)), green(name)))
+			fmt.Fprint(out, justifyOptionDescription(faint(usage)))
+
+			flagType := reflect.TypeOf(f.Value).Elem()
+			defaultString := f.DefValue
+			if flagType.Kind() == reflect.String {
+				if f.DefValue != "" {
+					defaultString = fmt.Sprintf("%q", f.DefValue)
+				}
+			}
+			if defaultString != "" {
+				fmt.Fprint(out, cyan(fmt.Sprintf(" (default %s)", bold(defaultString))))
+			}
+
+			fmt.Fprint(out, "\n\n")
+		})
 	}
 
 	if len(args) == 1 && args[0] == "help" {

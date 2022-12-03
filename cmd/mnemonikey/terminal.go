@@ -99,5 +99,5 @@ func justifyOptionDescription(description string) string {
 	// Take up at most 80% of the terminal width
 	termWidth, _ := getTerminalSize()
 	maxWidth := (termWidth - flagSetOptionDefaultIndent) * 4 / 5
-	return justifyWidth(0, maxWidth, description)
+	return justifyWidth(8, maxWidth, description)
 }
