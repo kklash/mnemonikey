@@ -162,6 +162,7 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
 - The subkey binding signatures must use type `0x18`.
 - Signatures should use SHA256 as the hashing function.
 - Signature timestamps should be the same as the key `creation` timestamp to ensure signatures are determinstic, regardless of when keys are recovered.
+- If the caller wishes to only export a subset of the keys, for example to generate a new subkey and export it without also exposing the master key, the master key can be encoded as a private key stub using the GNU-Dummy S2K extension. No official docs seem to be available for this, however, as it is not an official part of the OpenPGP specification.
 
 ## Mnemonic Encoding
 
