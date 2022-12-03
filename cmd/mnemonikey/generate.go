@@ -102,7 +102,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	if outputMasterKey {
 		pgpArmorKey, err = mnk.EncodePGPArmor(password)
 	} else {
-		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password)
+		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password, true)
 	}
 	if err != nil {
 		return err

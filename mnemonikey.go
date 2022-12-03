@@ -131,13 +131,16 @@ func (mnk *Mnemonikey) EncodePGP(password []byte) ([]byte, error) {
 // but only includes the private key material for subkeys. The master key is
 // encoded as a private key stub without providing the private key material itself.
 //
-// To use the output of this method, the caller is presumed to already have the
-// master key, so the self-certification signature is not provided.
+// If withSelfCert is false, the self-certification signature by the master key
+// will not be provided. Typically the self-certification is required when first importing
+// a set of PGP keys into a keychain, and can be skipped if importing into a keychain which
+// already has a self-certification signature recorded for the key. Leave withSelfCert as
+// true if you are unsure.
 //
 // If password is provided, it is used to encrypt private key material with
 // the OpenPGP String-to-Key algorithm.
-func (mnk *Mnemonikey) EncodeSubkeysPGP(password []byte) ([]byte, error) {
-	return mnk.pgpKeySet.EncodeSubkeyPackets(password)
+func (mnk *Mnemonikey) EncodeSubkeysPGP(password []byte, withSelfCert bool) ([]byte, error) {
+	return mnk.pgpKeySet.EncodeSubkeyPackets(password, withSelfCert)
 }
 
 // EncodePGPArmor encodes the entire Mnemonikey as a series of OpenPGP packets
@@ -162,13 +165,16 @@ func (mnk *Mnemonikey) EncodePGPArmor(password []byte) (string, error) {
 // material for subkeys. The master key is encoded as a private key stub
 // without providing the private key material itself.
 //
-// To use the output of this method, the caller is presumed to already have the
-// master key, so the self-certification signature is not provided.
+// If withSelfCert is false, the self-certification signature by the master key
+// will not be provided. Typically the self-certification is required when first importing
+// a set of PGP keys into a keychain, and can be skipped if importing into a keychain which
+// already has a self-certification signature recorded for the key. Leave withSelfCert as
+// true if you are unsure.
 //
 // If password is provided, it is used to encrypt private key material with
 // the OpenPGP String-to-Key algorithm.
-func (mnk *Mnemonikey) EncodeSubkeysPGPArmor(password []byte) (string, error) {
-	keyPacketData, err := mnk.EncodeSubkeysPGP(password)
+func (mnk *Mnemonikey) EncodeSubkeysPGPArmor(password []byte, withSelfCert bool) (string, error) {
+	keyPacketData, err := mnk.EncodeSubkeysPGP(password, withSelfCert)
 	if err != nil {
 		return "", err
 	}

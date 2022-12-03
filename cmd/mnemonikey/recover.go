@@ -18,6 +18,7 @@ type RecoverOptions struct {
 	Common      GenerateRecoverOptions
 	SimpleInput bool
 	WordFile    string
+	SelfCert    bool
 
 	EncryptionSubkeyIndex     uint
 	AuthenticationSubkeyIndex uint
@@ -58,6 +59,15 @@ var RecoverCommand = &Command[RecoverOptions]{
 			"",
 			"Read the words of the mnemonic from this `file`. Words should be separated by whitespace "+
 				"and the file should contain the exact 15 words. Useful for debugging.",
+		)
+
+		flags.BoolVar(
+			&opts.SelfCert,
+			"self-cert",
+			true,
+			"This flag decides if mnemonikey will output the master key's self-certification signature "+
+				"or not. Set "+magenta("-self-cert=false")+" if you are importing keys into a keyring which "+
+				"already has the master key, to avoid adding extra signatures to the key.",
 		)
 
 		flags.UintVar(
@@ -142,7 +152,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	if outputMasterKey {
 		pgpArmorKey, err = mnk.EncodePGPArmor(password)
 	} else {
-		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password)
+		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password, opts.SelfCert)
 	}
 	if err != nil {
 		return err

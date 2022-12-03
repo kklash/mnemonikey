@@ -122,6 +122,17 @@ func (keySet *KeySet) encodeAllSubkeyPackets(password []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// encodeSelfCertification creates a self-certification signature by the master key
+// and encodes it as a binary OpenPGP packet.
+func (keySet *KeySet) encodeSelfCertification() []byte {
+	var kdfParams *KeyDerivationParameters
+	if keySet.EncryptionSubkey != nil {
+		kdfParams = keySet.EncryptionSubkey.KDF
+	}
+	selfCertSig := keySet.MasterKey.SelfCertify(keySet.UserID, kdfParams)
+	return selfCertSig.EncodePacket()
+}
+
 // EncodePackets encodes the KeySet as a series of binary OpenPGP packets.
 //
 // If password is not nil and longer than 0 bytes, it is used as a key to
@@ -140,12 +151,7 @@ func (keySet *KeySet) EncodePackets(password []byte) ([]byte, error) {
 	buf.Write(keySet.UserID.EncodePacket())
 
 	// Self-certification signature for the master key
-	var kdfParams *KeyDerivationParameters
-	if keySet.EncryptionSubkey != nil {
-		kdfParams = keySet.EncryptionSubkey.KDF
-	}
-	selfCertSig := keySet.MasterKey.SelfCertify(keySet.UserID, kdfParams)
-	buf.Write(selfCertSig.EncodePacket())
+	buf.Write(keySet.encodeSelfCertification())
 
 	// Subkeys and binding signatures
 	subkeyPackets, err := keySet.encodeAllSubkeyPackets(password)
@@ -166,7 +172,7 @@ func (keySet *KeySet) EncodePackets(password []byte) ([]byte, error) {
 //
 // If password is not nil and longer than 0 bytes, it is used as a key to
 // encrypt the PGP private subkeys using the S2K iterated & salted algorithm.
-func (keySet *KeySet) EncodeSubkeyPackets(password []byte) ([]byte, error) {
+func (keySet *KeySet) EncodeSubkeyPackets(password []byte, withSelfCert bool) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	// Dummy master key stub
@@ -175,9 +181,12 @@ func (keySet *KeySet) EncodeSubkeyPackets(password []byte) ([]byte, error) {
 	// User ID
 	buf.Write(keySet.UserID.EncodePacket())
 
-	// Skip the self-certification signature to allow for use cases where the
-	// caller already has the master key, so that we don't add useless
+	// We might skip the self-certification signature to allow for use cases
+	// where the caller already has the master key, so that we don't add useless
 	// extra data and clutter their keyring with unneeded signatures.
+	if withSelfCert {
+		buf.Write(keySet.encodeSelfCertification())
+	}
 
 	// Subkeys and binding signatures
 	subkeyPackets, err := keySet.encodeAllSubkeyPackets(password)
