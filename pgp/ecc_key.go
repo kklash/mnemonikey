@@ -80,6 +80,25 @@ func (key *ellipticCurveKey) encodePrivate(password []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// encodePrivateDummy encodes the private key into a serialized private key stub,
+// payload suitable for use in a packet payload.
+func (key *ellipticCurveKey) encodePrivateDummy() []byte {
+	buf := new(bytes.Buffer)
+
+	// First include public key in the packet.
+	buf.Write(key.encodePublic())
+
+	// Specify string-to-key usage as gnu-dummy.
+	buf.WriteByte(stringToKeySpecifierPrefix)
+	buf.WriteByte(0) // No cipher algorithm, because no encryption
+	buf.WriteByte(s2kExtensionGNUDummy)
+	buf.WriteByte(0) // No hash algorithm, because no encryption
+	buf.Write([]byte(s2kGNUExtensionID))
+	buf.WriteByte(s2kExtensionGNUDummy - 100) // 1
+
+	return buf.Bytes()
+}
+
 // FingerprintV4 returns the 20-byte SHA1 hash of the serialized public key.
 func (key *ellipticCurveKey) FingerprintV4() []byte {
 	publicKeyPayload := key.encodePublic()

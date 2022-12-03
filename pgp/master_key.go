@@ -72,6 +72,12 @@ func (key *ED25519MasterKey) EncodePrivatePacket(password []byte) ([]byte, error
 	return EncodePacket(PacketTagSecretKey, encodedPrivateKey), nil
 }
 
+// EncodePrivateDummyPacket encodes the public key and a private key stub into
+// a serialized OpenPGP packet.
+func (key *ED25519MasterKey) EncodePrivateDummyPacket() []byte {
+	return EncodePacket(PacketTagSecretKey, key.base.encodePrivateDummy())
+}
+
 // SelfCertify returns a self-certification signature, needed
 // to prove the key attests to being owned by a given user identifier.
 func (key *ED25519MasterKey) SelfCertify(

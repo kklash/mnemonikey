@@ -45,18 +45,6 @@ type Mnemonikey struct {
 	keyCreationTime time.Time
 }
 
-// KeyOptions are a set of optional parameters which can be supplied when generating
-// or recovering Mnemonikeys. They affect specific parameters in the output PGP keys
-// but are not needed to recover the private keys themselves.
-type KeyOptions struct {
-	Name                      string
-	Email                     string
-	Expiry                    time.Time
-	EncryptionSubkeyIndex     uint16
-	AuthenticationSubkeyIndex uint16
-	SigningSubkeyIndex        uint16
-}
-
 // New constructs a Mnemonikey from a seed.
 //
 // The key creation timestamp is hashed when computing the PGP public key fingerprint,
@@ -109,27 +97,78 @@ func (mnk *Mnemonikey) FingerprintV4() []byte {
 }
 
 // FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
+//
+// Returns nil if the Mnemonikey was created without the given subkey.
 func (mnk *Mnemonikey) SubkeyFingerprintV4(subkeyType SubkeyType) []byte {
 	switch subkeyType {
 	case SubkeyTypeEncryption:
-		return mnk.pgpKeySet.EncryptionSubkey.FingerprintV4()
+		if mnk.pgpKeySet.EncryptionSubkey != nil {
+			return mnk.pgpKeySet.EncryptionSubkey.FingerprintV4()
+		}
+
 	case SubkeyTypeAuthentication:
-		return mnk.pgpKeySet.AuthenticationSubkey.FingerprintV4()
+		if mnk.pgpKeySet.AuthenticationSubkey != nil {
+			return mnk.pgpKeySet.AuthenticationSubkey.FingerprintV4()
+		}
+
 	case SubkeyTypeSigning:
-		return mnk.pgpKeySet.SigningSubkey.FingerprintV4()
+		if mnk.pgpKeySet.SigningSubkey != nil {
+			return mnk.pgpKeySet.SigningSubkey.FingerprintV4()
+		}
 	}
 	return nil
 }
 
-// EncodePGP encodes the Mnemonikey as a series of binary OpenPGP packets.
+// EncodePGP encodes the entire Mnemonikey as a series of binary OpenPGP packets.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
 func (mnk *Mnemonikey) EncodePGP(password []byte) ([]byte, error) {
 	return mnk.pgpKeySet.EncodePackets(password)
 }
 
-// EncodePGP encodes the Mnemonikey as a series of OpenPGP packets and formats
-// them an ASCII armor block format.
+// EncodeSubkeysPGP encodes the Mnemonikey as a series of binary OpenPGP packets,
+// but only includes the private key material for subkeys. The master key is
+// encoded as a private key stub without providing the private key material itself.
+//
+// To use the output of this method, the caller is presumed to already have the
+// master key, so the self-certification signature is not provided.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
+func (mnk *Mnemonikey) EncodeSubkeysPGP(password []byte) ([]byte, error) {
+	return mnk.pgpKeySet.EncodeSubkeyPackets(password)
+}
+
+// EncodePGPArmor encodes the entire Mnemonikey as a series of OpenPGP packets
+// and formats them to ASCII armor block format.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
 func (mnk *Mnemonikey) EncodePGPArmor(password []byte) (string, error) {
 	keyPacketData, err := mnk.pgpKeySet.EncodePackets(password)
+	if err != nil {
+		return "", err
+	}
+	pgpArmorKey, err := armorEncode(openpgp.PrivateKeyType, keyPacketData)
+	if err != nil {
+		return "", err
+	}
+	return pgpArmorKey, nil
+}
+
+// EncodeSubkeysPGPArmor encodes the Mnemonikey as a series of OpenPGP packets
+// formatted to ASCII armor block format, but only includes the private key
+// material for subkeys. The master key is encoded as a private key stub
+// without providing the private key material itself.
+//
+// To use the output of this method, the caller is presumed to already have the
+// master key, so the self-certification signature is not provided.
+//
+// If password is provided, it is used to encrypt private key material with
+// the OpenPGP String-to-Key algorithm.
+func (mnk *Mnemonikey) EncodeSubkeysPGPArmor(password []byte) (string, error) {
+	keyPacketData, err := mnk.EncodeSubkeysPGP(password)
 	if err != nil {
 		return "", err
 	}

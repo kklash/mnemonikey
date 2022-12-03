@@ -12,8 +12,9 @@ import (
 const maxSubkeyIndex uint = 0xFFFF
 
 type RecoverOptions struct {
-	Common      GenerateRecoverOptions
-	SimpleInput bool
+	Common       GenerateRecoverOptions
+	SimpleInput  bool
+	OnlyKeyTypes string
 
 	EncryptionSubkeyIndex     uint
 	AuthenticationSubkeyIndex uint
@@ -28,6 +29,9 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover -name myuser",
 		"mnemonikey recover -name=myuser -email someone@someplace.com",
 		"mnemonikey recover -name myuser -enc-index 3 -auth-index=2",
+		"mnemonikey recover -name myuser -only master",
+		"mnemonikey recover -name myuser -enc-index 3 -only master,encryption",
+		"mnemonikey recover -name myuser -auth-index 12 -only authentication",
 		"mnemonikey recover -expiry 2y",
 		"mnemonikey recover -expiry=17w",
 		"mnemonikey recover -expiry 1679285000",
@@ -44,6 +48,16 @@ var RecoverCommand = &Command[RecoverOptions]{
 				"Revert to a simpler terminal input mechanism for entering the recovery "+
 					"phrase. Useful if the fancy terminal manipulation used by the default "+
 					"input mode doesn't work on your system. (optional)",
+			),
+		)
+
+		flags.StringVar(
+			&opts.OnlyKeyTypes,
+			"only",
+			"",
+			justifyOptionDescription(
+				"Only output a subset of the complete key. A comma-delimited list of the "+
+					"following possible values:  master | encryption | signing | authentication",
 			),
 		)
 
@@ -94,6 +108,24 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return fmt.Errorf("invalid subkey index; must be less than or equal to %d", maxSubkeyIndex)
 	}
 
+	outputMasterKey := true
+	if opts.OnlyKeyTypes != "" {
+		outputMasterKey = false
+		onlyKeyTypes := strings.Split(opts.OnlyKeyTypes, ",")
+		keyOptions.Subkeys = make([]mnemonikey.SubkeyType, 0, len(onlyKeyTypes))
+		for _, keyType := range onlyKeyTypes {
+			if keyType == "master" {
+				outputMasterKey = true
+			} else if keyType == string(mnemonikey.SubkeyTypeEncryption) ||
+				keyType == string(mnemonikey.SubkeyTypeAuthentication) ||
+				keyType == string(mnemonikey.SubkeyTypeSigning) {
+				keyOptions.Subkeys = append(keyOptions.Subkeys, mnemonikey.SubkeyType(keyType))
+			} else {
+				return fmt.Errorf("%w: unknown -only list element %q", ErrPrintUsage, keyType)
+			}
+		}
+	}
+
 	var words []string
 	if opts.SimpleInput {
 		words, err = userInputMnemonicSimple(mnemonikey.MnemonicSize)
@@ -117,7 +149,12 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		}
 	}
 
-	pgpArmorKey, err := mnk.EncodePGPArmor(password)
+	var pgpArmorKey string
+	if outputMasterKey {
+		pgpArmorKey, err = mnk.EncodePGPArmor(password)
+	} else {
+		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password)
+	}
 	if err != nil {
 		return err
 	}
