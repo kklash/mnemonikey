@@ -17,28 +17,22 @@ var durationUnits = map[string]time.Duration{
 	"y": time.Hour * 24 * 365,
 }
 
-func parseExpiry(now time.Time, input string) (time.Time, error) {
+func parseTTL(input string) (time.Duration, error) {
 	badInputErr := fmt.Errorf("%w: %q", ErrInvalidDuration, input)
 
 	if len(input) == 0 {
-		return time.Time{}, badInputErr
+		return 0, badInputErr
 	}
 
 	unit, ok := durationUnits[strings.ToLower(input[len(input)-1:])]
 	if !ok {
-		// If no suffix provided, interpret input as an absolute unix timestamp
-		timestamp, err := strconv.ParseUint(input, 10, 64)
-		if err != nil {
-			return time.Time{}, err
-		}
-
-		return time.Unix(int64(timestamp), 0), nil
+		return 0, badInputErr
 	}
 
 	quantity, err := strconv.ParseUint(input[:len(input)-1], 10, 64)
 	if err != nil {
-		return time.Time{}, badInputErr
+		return 0, badInputErr
 	}
 
-	return now.Add(time.Duration(quantity) * unit), nil
+	return time.Duration(quantity) * unit, nil
 }

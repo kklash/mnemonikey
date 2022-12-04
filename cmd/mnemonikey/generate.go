@@ -29,9 +29,8 @@ var GenerateCommand = &Command[GenerateOptions]{
 		"mnemonikey generate -name username",
 		"mnemonikey generate -name username -email bob@hotmail.com",
 		"mnemonikey generate -name username -only master,encryption",
-		"mnemonikey generate -expiry 2y",
-		"mnemonikey generate -expiry 17w",
-		"mnemonikey generate -expiry 1679285000",
+		"mnemonikey generate -ttl 2y",
+		"mnemonikey generate -ttl 17w",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
 		opts.Common.AddFlags(flags)
@@ -61,8 +60,8 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		err      error
 	)
 
-	if opts.Common.Expiry != "" {
-		keyOptions.Expiry, err = parseExpiry(creation, opts.Common.Expiry)
+	if opts.Common.TTL != "" {
+		keyOptions.TTL, err = parseTTL(opts.Common.TTL)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}

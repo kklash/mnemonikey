@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/kklash/mnemonikey"
 	"github.com/kklash/mnemonikey/mnemonic"
@@ -35,10 +34,9 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover -name myuser -enc-index 3 -auth-index=2",
 		"mnemonikey recover -name myuser -only master",
 		"mnemonikey recover -name myuser -enc-index 3 -only master,encryption",
-		"mnemonikey recover -name myuser -auth-index 12 -only authentication",
-		"mnemonikey recover -expiry 2y",
-		"mnemonikey recover -expiry=17w",
-		"mnemonikey recover -expiry 1679285000",
+		"mnemonikey recover -name myuser -auth-index 12 -only authentication -self-cert=false",
+		"mnemonikey recover -ttl 2y",
+		"mnemonikey recover -ttl=17w",
 		"mnemonikey recover -simple -name myuser",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
@@ -104,8 +102,8 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	}
 
 	var err error
-	if opts.Common.Expiry != "" {
-		keyOptions.Expiry, err = parseExpiry(time.Now(), opts.Common.Expiry)
+	if opts.Common.TTL != "" {
+		keyOptions.TTL, err = parseTTL(opts.Common.TTL)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}

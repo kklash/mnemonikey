@@ -24,9 +24,9 @@ const (
 	SubkeyTypeSigning        SubkeyType = "signing"
 )
 
-// ErrExpiryTooEarly is returned when constructing a Mnemonikey, if its creation
-// and expiry times are conflicting.
-var ErrExpiryTooEarly = errors.New("expiry time predates key creation offset")
+// ErrTTLInvalid is returned when constructing a Mnemonikey, if the TTL
+// selected is less than zero.
+var ErrTTLInvalid = errors.New("key time-to-live cannot be negative")
 
 // ErrCreationTooLate is returned when constructing a Mnemonikey, if its creation
 // time is too far in the future to fit in CreationOffsetBitCount.
@@ -58,10 +58,9 @@ func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) 
 	if opts == nil {
 		opts = new(KeyOptions)
 	}
-	if !opts.Expiry.IsZero() && creation.After(opts.Expiry) {
-		return nil, ErrExpiryTooEarly
-	}
-	if creation.After(MaxCreationTime) {
+	if opts.TTL < 0 {
+		return nil, ErrTTLInvalid
+	} else if creation.After(MaxCreationTime) {
 		return nil, ErrCreationTooLate
 	} else if creation.Before(EpochStart) {
 		return nil, ErrCreationTooEarly

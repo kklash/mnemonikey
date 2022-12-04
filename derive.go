@@ -40,13 +40,16 @@ func hkdfExpand(seedBytes []byte, size int, info []byte) ([]byte, error) {
 // HMAC-based Key Derivation Function (defined in RFC-5869) with SHA256.
 //
 // Sets the key's creation time to the given value. Sets the key's user ID
-// and expiry time to values given in the key options.
+// and expiry time using values given in the key options.
 //
 // The opts struct can also provide subkey indices which will cause different subkeys
 // to be generated.
 func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*pgp.KeySet, error) {
-	// Floor expiry to a unix second.
-	expiry := time.Unix(opts.Expiry.Unix(), 0).UTC()
+	var expiry time.Time
+	if opts.TTL > 0 {
+		// Floor expiry to a unix second.
+		expiry = time.Unix(creation.Add(opts.TTL).Unix(), 0).UTC()
+	}
 
 	masterKeySeed, err := hkdfExpand(seedBytes, 32, []byte(keyExpandInfoMaster))
 	if err != nil {

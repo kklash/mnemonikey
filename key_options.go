@@ -9,8 +9,10 @@ type KeyOptions struct {
 	// Name and Email are used to build the user ID for a PGP key.
 	Name, Email string
 
-	// Expiry sets when the generated key is supposed to expire.
-	Expiry time.Time
+	// TTL defines the validity period of the generated key. This TTL is relative to the
+	// key creation time, so that keys derived using the same options and seed will always
+	// be deterministic. TTL must be a positive duration.
+	TTL time.Duration
 
 	// These are indices which allow the caller to choose a specific subkey to generate.
 	// Each subkey at different indices is completely independent of each other - there is

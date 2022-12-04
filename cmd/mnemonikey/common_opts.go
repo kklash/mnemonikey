@@ -12,7 +12,7 @@ import (
 type GenerateRecoverOptions struct {
 	Name         string
 	Email        string
-	Expiry       string
+	TTL          string
 	Encrypt      bool
 	OnlyKeyTypes string
 	Verbose      bool
@@ -35,12 +35,12 @@ func (opts *GenerateRecoverOptions) AddFlags(flags *flag.FlagSet) {
 	)
 
 	flags.StringVar(
-		&opts.Expiry,
-		"expiry",
+		&opts.TTL,
+		"ttl",
 		"",
-		"Set an expiry `period` on the exported key. Can be a number denominated "+
-			"in days (d) weeks (w) months (m) or years (y) relative to the current "+
-			"time, such as \"24d\" or \"2y\", or an absolute unix timestamp number.",
+		"Set a time-to-live validity `period` on the exported key. Can be a number denominated in "+
+			"days (d) weeks (w) months (m) or years (y) relative to the key creation time, such as "+
+			"\"24d\" or \"2y\" after key creation.",
 	)
 
 	flags.BoolVar(
