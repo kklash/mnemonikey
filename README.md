@@ -4,7 +4,7 @@
 
 |Generation|Recovery|
 |----------|--------|
-|![generate](https://user-images.githubusercontent.com/31221309/204209819-815ab01b-cf45-4424-8db9-f1d1f5fd56fb.gif)|![recover](https://user-images.githubusercontent.com/31221309/204209831-2621a840-da98-4e5c-ac28-2837b7098b38.gif)|
+|![generate](https://user-images.githubusercontent.com/31221309/205517587-b7a063c5-f69b-43ca-abf5-cb4567ded058.gif)|![recover](https://user-images.githubusercontent.com/31221309/205517589-8f6d75b9-473c-4f61-9244-2b01466f0f02.gif)|
 
 Mnemonikey allows you to back up your PGP keys without managing highly sensitive and awkward digital files, without any loss of security.
 
