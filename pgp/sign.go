@@ -40,11 +40,6 @@ func Sign(privateKey ed25519.PrivateKey, req *SignatureRequest) *Signature {
 			Body: signatureTimestamp,
 		},
 		{
-			// TODO do we need this subpacket?
-			Type: SubpacketTypeIssuer,
-			Body: req.SigningKeyFingerprint[len(req.SigningKeyFingerprint)-8:],
-		},
-		{
 			Type: SubpacketTypeIssuerFingerprint,
 			Body: append([]byte{keyPacketVersion}, req.SigningKeyFingerprint...),
 		},
@@ -55,6 +50,12 @@ func Sign(privateKey ed25519.PrivateKey, req *SignatureRequest) *Signature {
 		HashedSubpackets: subpackets,
 		Type:             req.Type,
 		HashFunction:     req.HashFunction,
+		UnhashedSubpackets: []*Subpacket{
+			{
+				Type: SubpacketTypeIssuer,
+				Body: req.SigningKeyFingerprint[len(req.SigningKeyFingerprint)-8:],
+			},
+		},
 	}
 
 	h := req.HashFunction.New()
