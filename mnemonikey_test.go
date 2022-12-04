@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -71,8 +72,9 @@ func TestMnemonikey(t *testing.T) {
 	fingerprint := "1645C5A88E4F3DCE2F377B40448CD7DD554FFBCB"
 	encryptionSubkeyFingerprint := "F227EA1A4A4073D57AD1E1A000A9694282EC108B"
 	keyOpts := &KeyOptions{
-		Name:  "username",
-		Email: "user@domain.com",
+		Name:    "username",
+		Email:   "user@domain.com",
+		Subkeys: []SubkeyType{SubkeyTypeEncryption, SubkeyTypeSigning},
 	}
 
 	mnk, err := New(seed, now, keyOpts)
@@ -132,6 +134,13 @@ func TestMnemonikey(t *testing.T) {
 				"incremented encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
 				expectedFingerprint, actualFpr,
 			)
+		}
+	})
+
+	t.Run("returns subkey types", func(t *testing.T) {
+		keyTypes := mnk.SubkeyTypes()
+		if !reflect.DeepEqual(keyTypes, keyOpts.Subkeys) {
+			t.Errorf("SubkeyTypes didn't return expected subkey types")
 		}
 	})
 

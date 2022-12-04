@@ -96,6 +96,21 @@ func (mnk *Mnemonikey) FingerprintV4() []byte {
 	return mnk.pgpKeySet.MasterKey.FingerprintV4()
 }
 
+// SubkeyTypes returns the types of subkeys available to the Mnemonikey.
+func (mnk *Mnemonikey) SubkeyTypes() []SubkeyType {
+	subkeyTypes := make([]SubkeyType, 0, 3)
+	if mnk.pgpKeySet.EncryptionSubkey != nil {
+		subkeyTypes = append(subkeyTypes, SubkeyTypeEncryption)
+	}
+	if mnk.pgpKeySet.AuthenticationSubkey != nil {
+		subkeyTypes = append(subkeyTypes, SubkeyTypeAuthentication)
+	}
+	if mnk.pgpKeySet.SigningSubkey != nil {
+		subkeyTypes = append(subkeyTypes, SubkeyTypeSigning)
+	}
+	return subkeyTypes
+}
+
 // FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
 //
 // Returns nil if the Mnemonikey was created without the given subkey.
