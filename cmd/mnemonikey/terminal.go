@@ -1,10 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"golang.org/x/term"
+
+	"github.com/kklash/mnemonikey"
 )
 
 const (
@@ -100,4 +106,41 @@ func justifyOptionDescription(description string) string {
 	termWidth, _ := getTerminalSize()
 	maxWidth := (termWidth - flagSetOptionDefaultIndent) * 4 / 5
 	return justifyWidth(8, maxWidth, description)
+}
+
+func printKeyDebugInfo(mnk *mnemonikey.Mnemonikey) {
+	info := [][2]string{
+		{"Master key Fingerprint", fmt.Sprintf("%X", mnk.FingerprintV4())},
+		{"User ID", fmt.Sprintf("%q", mnk.UserID())},
+		{"Created at", mnk.CreatedAt().Format(time.RFC3339)},
+	}
+	if expiry := mnk.Expiry(); !expiry.IsZero() {
+		info = append(info, [2]string{"Expires at", expiry.Format(time.RFC3339)})
+	}
+	for _, subkeyType := range mnk.SubkeyTypes() {
+		key := fmt.Sprintf("%s subkey fingerprint", capitalize(subkeyType))
+		info = append(info, [2]string{key, fmt.Sprintf("%X", mnk.SubkeyFingerprintV4(subkeyType))})
+	}
+	printDebugInfo(os.Stderr, info)
+}
+
+func capitalize[T ~string](s T) string {
+	return strings.ToUpper(string(s[:1])) + string(s[1:])
+}
+
+func printDebugInfo(out io.Writer, values [][2]string) {
+	maxLen := 0
+	for _, pair := range values {
+		key := pair[0]
+		keyLen := utf8.RuneCountInString(key)
+		if keyLen > maxLen {
+			maxLen = keyLen
+		}
+	}
+
+	for _, pair := range values {
+		key, value := pair[0], pair[1]
+		spacing := strings.Repeat(" ", maxLen-len(key)+1)
+		fmt.Fprintln(out, faint(key+":")+spacing+cyan(value))
+	}
 }

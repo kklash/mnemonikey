@@ -85,10 +85,20 @@ func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) 
 	return mnk, nil
 }
 
-// CreatedAt returns the key creation date, rounded to an EpochIncrement
+// CreatedAt returns the key creation timestamp, rounded to an EpochIncrement
 // after the EpochStart date.
 func (mnk *Mnemonikey) CreatedAt() time.Time {
 	return mnk.keyCreationTime
+}
+
+// Expiry returns the key expiry time.
+func (mnk *Mnemonikey) Expiry() time.Time {
+	return mnk.pgpKeySet.MasterKey.Expiry
+}
+
+// UserID returns the string form of the key's user ID.
+func (mnk *Mnemonikey) UserID() string {
+	return string(mnk.pgpKeySet.UserID.Encode())
 }
 
 // FingerprintV4 returns the SHA1 hash of the master key and the key user ID.

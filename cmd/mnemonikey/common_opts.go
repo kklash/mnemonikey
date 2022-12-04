@@ -15,6 +15,7 @@ type GenerateRecoverOptions struct {
 	Expiry       string
 	Encrypt      bool
 	OnlyKeyTypes string
+	Verbose      bool
 }
 
 // AddFlags registers the common set of options as command line flags.
@@ -55,6 +56,13 @@ func (opts *GenerateRecoverOptions) AddFlags(flags *flag.FlagSet) {
 		"",
 		"Only output a subset key containing the given key `types` as PGP packets. A comma-delimited "+
 			"list of the following possible values:  master | encryption | signing | authentication",
+	)
+
+	flags.BoolVar(
+		&opts.Verbose,
+		"verbose",
+		false,
+		"Print extra debugging information to stderr when building keys.",
 	)
 }
 

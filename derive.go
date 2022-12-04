@@ -45,11 +45,14 @@ func hkdfExpand(seedBytes []byte, size int, info []byte) ([]byte, error) {
 // The opts struct can also provide subkey indices which will cause different subkeys
 // to be generated.
 func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*pgp.KeySet, error) {
+	// Floor expiry to a unix second.
+	expiry := time.Unix(opts.Expiry.Unix(), 0).UTC()
+
 	masterKeySeed, err := hkdfExpand(seedBytes, 32, []byte(keyExpandInfoMaster))
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive master key from seed: %w", err)
 	}
-	masterKey, err := pgp.NewED25519MasterKey(masterKeySeed, creation, opts.Expiry)
+	masterKey, err := pgp.NewED25519MasterKey(masterKeySeed, creation, expiry)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +71,7 @@ func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*p
 		if err != nil {
 			return nil, fmt.Errorf("failed to derive encryption subkey from seed: %w", err)
 		}
-		pgpKeySet.EncryptionSubkey, err = pgp.NewCurve25519Subkey(encryptionSubkeySeed, creation, opts.Expiry, nil)
+		pgpKeySet.EncryptionSubkey, err = pgp.NewCurve25519Subkey(encryptionSubkeySeed, creation, expiry, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +83,7 @@ func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*p
 		if err != nil {
 			return nil, fmt.Errorf("failed to derive authentication subkey from seed: %w", err)
 		}
-		pgpKeySet.AuthenticationSubkey, err = pgp.NewED25519Subkey(authenticationSubkeySeed, creation, opts.Expiry)
+		pgpKeySet.AuthenticationSubkey, err = pgp.NewED25519Subkey(authenticationSubkeySeed, creation, expiry)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +95,7 @@ func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*p
 		if err != nil {
 			return nil, fmt.Errorf("failed to derive signing subkey from seed: %w", err)
 		}
-		pgpKeySet.SigningSubkey, err = pgp.NewED25519Subkey(signingSubkeySeed, creation, opts.Expiry)
+		pgpKeySet.SigningSubkey, err = pgp.NewED25519Subkey(signingSubkeySeed, creation, expiry)
 		if err != nil {
 			return nil, err
 		}

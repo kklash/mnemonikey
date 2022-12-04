@@ -120,16 +120,18 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	eprintf("Generated OpenPGP private key with %d bits of entropy.\n", mnemonikey.EntropyBitCount)
-	eprintf("Key fingerprint: %X\n", mnk.FingerprintV4())
-	eprintln(magentaStart)
-	fmt.Println(pgpArmorKey)
-	eprintln(colorEnd)
+	if opts.Common.Verbose {
+		eprintf("Generated OpenPGP private key with %d bits of entropy:\n", mnemonikey.EntropyBitCount)
+		printKeyDebugInfo(mnk)
+		eprintln()
+	}
 
-	// TODO print debug info about key
+	eprint(magentaStart)
+	fmt.Println(pgpArmorKey)
+	eprint(colorEnd)
 
 	if opts.WordFile == "" {
-		eprint("This is the mnemonic phrase which can be used to recover the private key:\n\n")
+		eprint("\nThis is the mnemonic phrase which can be used to recover the private key:\n\n")
 		printMnemonic(recoveryMnemonic)
 		eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
 		eprint(
