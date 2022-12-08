@@ -120,8 +120,7 @@ func (mnk *Mnemonikey) SubkeyTypes() []SubkeyType {
 	return subkeyTypes
 }
 
-// FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
-//
+// SubkeyFingerprintV4 returns the SHA1 hash of the given subkey type.
 // Returns nil if the Mnemonikey was created without the given subkey.
 func (mnk *Mnemonikey) SubkeyFingerprintV4(subkeyType SubkeyType) []byte {
 	switch subkeyType {

@@ -6,7 +6,7 @@ import (
 	"math/big"
 )
 
-// Subpackets contain extra metadata about the conditions of a signature's
+// Subpacket contains extra metadata about the conditions of a signature's
 // assertion, and they may or may not be committed to by the signature,
 // depending on their position within the signature packet.
 type Subpacket struct {

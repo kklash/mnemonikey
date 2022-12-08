@@ -78,7 +78,7 @@ func (key *Curve25519Subkey) FingerprintV4() []byte {
 	return key.base.FingerprintV4()
 }
 
-// EncodePublicPacket encodes the public key into a serialized OpenPGP packet.
+// EncodePublicSubkeyPacket encodes the public key into a serialized OpenPGP packet.
 func (key *Curve25519Subkey) EncodePublicSubkeyPacket() []byte {
 	return EncodePacket(PacketTagPublicSubkey, key.base.encodePublic())
 }

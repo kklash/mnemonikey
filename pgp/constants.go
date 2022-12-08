@@ -130,7 +130,7 @@ const (
 	// a master certification key.
 	SignatureTypeSubkeyBinding SignatureType = 0x18
 
-	// SignatureTypePrimaryKeyBinding indicates teh signature intends to bind a master
+	// SignatureTypePrimaryKeyBinding indicates the signature intends to bind a master
 	// key to a signing subkey.
 	SignatureTypePrimaryKeyBinding SignatureType = 0x19
 
