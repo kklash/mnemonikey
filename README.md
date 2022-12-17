@@ -187,7 +187,7 @@ An english phrase of 15 words which completely encodes the `seed` and the `creat
 1. Append the 128-bit integer `seed` to `backupPayload` as the lowest-order bits.
     - `backupPayload = (backupPayload << 128) | seed`
 1. Append the 30-bit integer `creationOffset` to `backupPayload` as the lowest-order bits.
-    - `backupPayload = (seed << 30) | creationOffset`
+    - `backupPayload = (backupPayload << 30) | creationOffset`
 1. Serialize the `backupPayload` (now 160-bits long) as a big-endian byte array with length 20.
     - Call the result `backupPayloadBytes`
     - `backupPayloadBytes = backupPayload.to_bytes(20, 'big')`
