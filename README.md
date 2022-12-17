@@ -334,7 +334,7 @@ No subkey has any special preference or power over any other. When generated, an
 
 The master key cannot be used to re-derive any Mnemonikey subkeys, although it could be used to sign new non-deterministically generated subkeys out-of-band and bind them to the same user ID. **We recommend not to do this,** because any subkeys generated outside of Mnemonikey **cannot be re-generated** with the Mnemonikey recovery phrase later.
 
-The normal use of subkeys involves revoking subkeys once they become compromised or outdated. To do this with Mnemonikey, one would revoke their old subkey at index $n$ using a downstream PGP tool (`gpg --edit uid` and type `revkey`). Then Mnemonikey can be used to generate a fresh subkey at index $n+1$. This derived subkey should be exported on its own, orphaned from the master key and other subkeys, and imported into the PGP keychain.
+The normal use of subkeys involves revoking subkeys once they become compromised or outdated. To do this with Mnemonikey, one would revoke their old subkey at index $n$ using a downstream PGP tool (`gpg --edit uid` and type `key n`, and then type `revkey`). Then Mnemonikey can be used to generate a fresh subkey at index $n+1$. This derived subkey should be exported on its own, orphaned from the master key and other subkeys, and imported into the PGP keychain.
 
 ### Example
 
