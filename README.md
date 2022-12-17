@@ -244,8 +244,8 @@ We could reduce the size of the key creation timestamp much more by sacrificing 
 |29 bits|15 words|`2039-01-05`|`3042-10-07`|Very High|Very High|
 |28 bits|15 words|`2030-07-04`|`2532-05-20`|Very High|Very High|
 |27 bits|15 words|`2026-04-03`|`2277-03-11`|Very High|Very High|
-|26 bits|14 words|`2024-02-16`|`2149-08-06`|`9677-09-28`|Very High|
-|25 bits|14 words|Too Low|`2085-10-18`|`5849-11-14`|Very High|
+|26 bits|15 words|`2024-02-16`|`2149-08-06`|`9677-09-28`|Very High|
+|25 bits|15 words|Too Low|`2085-10-18`|`5849-11-14`|Very High|
 |24 bits|14 words|Too Low|`2053-11-24`|`3935-12-09`|Very High|
 |23 bits|14 words|Too Low|`2037-12-13`|`2978-12-19`|Very High|
 |22 bits|14 words|Too Low|`2029-12-22`|`2500-06-26`|Very High|
@@ -255,8 +255,8 @@ We could reduce the size of the key creation timestamp much more by sacrificing 
 |18 bits|14 words|Too Low|Too Low|`2051-11-27`|`2739-09-23`|
 |17 bits|14 words|Too Low|Too Low|`2036-12-13`|`2380-11-11`|
 |16 bits|14 words|Too Low|Too Low|`2029-06-23`|`2201-06-07`|
-|15 bits|13 words|Too Low|Too Low|`2025-09-27`|`2111-09-19`|
-|14 bits|13 words|Too Low|Too Low|Too Low|`2066-11-09`|
+|15 bits|14 words|Too Low|Too Low|`2025-09-27`|`2111-09-19`|
+|14 bits|14 words|Too Low|Too Low|Too Low|`2066-11-09`|
 |13 bits|13 words|Too Low|Too Low|Too Low|`2044-06-05`|
 |12 bits|13 words|Too Low|Too Low|Too Low|`2033-03-19`|
 |11 bits|13 words|Too Low|Too Low|Too Low|`2027-08-10`|
@@ -288,7 +288,7 @@ epoch = 1640995200
 rows = []
 
 for ts_bits in reversed(range(8, 33)):
-  n_words = (128 + ts_bits + 10) // 11
+  n_words = (128 + ts_bits + 2 + 10) // 11
 
   row = ["%d bits" % ts_bits, "%d words" % n_words]
 
