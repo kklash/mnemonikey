@@ -178,7 +178,7 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
 
 ### Output
 
-An English phrase of 15 words which completely encodes the `seed` and the `creationOffset`.
+An English phrase of 15 words which completely encodes the `version`, `seed`, and `creationOffset`.
 
 ### Procedure
 
