@@ -1,0 +1,43 @@
+name: Unit Tests
+on: [push]
+env:
+  GOVERSION: "1.19.4"
+  GOPATH: "/tmp/gopath"
+  GOROOT: "/tmp/go"
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache@v3
+        name: cache golang toolchain
+        id: cache-go-root
+        with:
+          path: /tmp/go
+          key: go${{ env.GOVERSION }}.linux-amd64
+
+      - name: download golang toolcahin
+        if: ${{ steps.cache-go-root.outputs.cache-hit != 'true' }}
+        run: |
+          curl -Lo /tmp/go.tgz https://go.dev/dl/go$GOVERSION.linux-amd64.tar.gz
+          tar -C /tmp -xzf /tmp/go.tgz
+
+      - name: checkout source
+        uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        name: cache go dependencies
+        id: cache-go-deps
+        with:
+          path: /tmp/gopath
+          key: go-deps-${{ hashFiles('**/go.sum') }}
+
+      - name: configure golang in PATH
+        run: 'echo "$GOROOT/bin:$GOPATH/bin:$PATH" >> $GITHUB_PATH'
+
+      - name: test library
+        run: go test -vet=all ./...
+
+      - name: test binary
+        run: |
+          cd ./cmd/mnemonikey
+          go test -vet=all
