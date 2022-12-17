@@ -2,6 +2,8 @@
 
 ### _Deterministic backup and recovery of PGP keys using human-readable phrases._
 
+Save your PGP identity as a list of 15 English words. Use these words to recover lost keys or derive new subkeys.
+
 |Generation|Recovery|
 |----------|--------|
 |![generate](https://user-images.githubusercontent.com/31221309/205517587-b7a063c5-f69b-43ca-abf5-cb4567ded058.gif)|![recover](https://user-images.githubusercontent.com/31221309/205517589-8f6d75b9-473c-4f61-9244-2b01466f0f02.gif)|
