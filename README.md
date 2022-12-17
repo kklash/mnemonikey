@@ -90,7 +90,7 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 |`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **30-bit** unsigned integer. | YES |
 |`name`| A human-readable display name used to build the PGP key's user-identifier string. | NO |
 |`email`| An email address used to build the PGP key's user-identifier string. | NO |
-|`ttl`| An time-to-live duration in seconds applied to the output PGP key set. | NO |
+|`ttl`| A time-to-live duration in seconds applied to the output PGP key set. | NO |
 |`password`| A byte-array used to symmetrically encrypt the output PGP key set. | NO |
 |`encSubkeyIndex`| A 16-bit integer which can be used to derive different encryption subkeys. | NO |
 |`authSubkeyIndex`| A 16-bit integer which can be used to derive different authentication subkeys. | NO |
