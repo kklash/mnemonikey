@@ -1,4 +1,4 @@
-# mnemonikey
+# mnemonikey [![Unit Tests](https://github.com/kklash/mnemonikey/actions/workflows/test.yml/badge.svg)](https://github.com/kklash/mnemonikey/actions/workflows/test.yml)
 
 ### _Deterministic backup and recovery of PGP keys using human-readable phrases._
 
