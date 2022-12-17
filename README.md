@@ -352,7 +352,7 @@ $ mnemonikey recover -only signing -sig-index 1 -self-cert=false | gpg --import
 
 <img width="700" src="https://user-images.githubusercontent.com/31221309/205466129-8f9528e8-0ee8-49ec-9f98-3197d79bc103.gif">
 
-`-self-cert=false` is an optional flag which tells Mnemonikey not to output the master key's self-certification signature on the user ID. This is useful when minting new subkeys, in a situation where you already have the master key stored safely in your keyring.
+`-self-cert=false` is an optional flag which tells Mnemonikey not to output the master key's self-certification signature on the user ID. This is useful when minting new subkeys, in a situation where you already have the master key stored safely in your keyring. It prevents adding unneeded extra certification signatures to your keychain.
 
 ## Security
 
