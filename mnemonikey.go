@@ -55,6 +55,10 @@ type Mnemonikey struct {
 // The user ID parameters, name and email, are not required but are highly recommended
 // to assist in identifying the key later.
 func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) {
+	if err := checkSeedVersion(seed.Version); err != nil {
+		return nil, err
+	}
+
 	if opts == nil {
 		opts = new(KeyOptions)
 	}
@@ -70,7 +74,7 @@ func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) 
 	creationOffset := creation.Sub(EpochStart) / EpochIncrement
 	creation = EpochStart.Add(EpochIncrement * creationOffset)
 
-	pgpKeySet, err := derivePGPKeySet(seed.Bytes(), creation, opts)
+	pgpKeySet, err := derivePGPKeySet(seed, creation, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -213,11 +217,13 @@ func (mnk *Mnemonikey) EncodeSubkeysPGPArmor(password []byte, withSelfCert bool)
 func (mnk *Mnemonikey) EncodeMnemonic() ([]string, error) {
 	creationOffset := int64(mnk.keyCreationTime.Sub(EpochStart) / EpochIncrement)
 
-	payloadInt := new(big.Int).Set(mnk.seed.Value)
+	payloadInt := big.NewInt(int64(mnk.seed.Version))
+	payloadInt.Lsh(payloadInt, EntropyBitCount)
+	payloadInt.Or(payloadInt, mnk.seed.Value)
 	payloadInt.Lsh(payloadInt, CreationOffsetBitCount)
 	payloadInt.Or(payloadInt, big.NewInt(creationOffset))
 
-	payloadBitCount := EntropyBitCount + CreationOffsetBitCount
+	payloadBitCount := VersionBitCount + EntropyBitCount + CreationOffsetBitCount
 	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
 
 	checksum := checksumMask & crc32.ChecksumIEEE(payloadBytes)

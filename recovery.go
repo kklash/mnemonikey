@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/kklash/mnemonikey/mnemonic"
@@ -76,8 +77,32 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 	creation = EpochStart.Add(time.Duration(creationOffset) * EpochIncrement)
 	payloadInt.Rsh(payloadInt, CreationOffsetBitCount)
 
-	// Remaining bits are all seed data
-	seed = NewSeed(payloadInt)
+	// Determine seed entropy integer
+	seedInt := new(big.Int).And(payloadInt, entropyMask)
+	payloadInt.Rsh(payloadInt, EntropyBitCount)
 
+	// Remaining bits are the version number.
+	version := uint(payloadInt.Uint64())
+
+	// NewSeed will return ErrUnsupportedSeedVersion if the version number is unsupported.
+	seed, err = NewSeed(version, seedInt)
+	return
+}
+
+// ParseVersion parses the version number encoded in first word of the recovery phrase. Returns
+// mnemonic.ErrInvalidWord if the word is not in the word list. Returns ErrUnsupportedSeedVersion
+// if the version number is greater than VersionLatest.
+//
+// This can be used to inform a user ahead of time if the user's mnemonic recovery phrase is
+// not supported by this version of the Mnemonikey library, thus saving them from entering
+// the whole phrase in needlessly.
+func ParseVersion(firstWord string) (version uint, err error) {
+	index, ok := mnemonic.WordMap[strings.ToLower(firstWord)]
+	if !ok {
+		return 0, mnemonic.ErrInvalidWord
+	}
+
+	version = uint(index) >> (mnemonic.BitsPerWord - VersionBitCount)
+	err = checkSeedVersion(version)
 	return
 }

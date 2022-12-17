@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/kklash/mnemonikey"
 	"github.com/kklash/mnemonikey/mnemonic"
 )
 
@@ -112,8 +113,17 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 					eprint("\r\n" + red(badWordMessage) + loadCursor)
 					continue
 				}
+				completedWord := wordInput + searchResult.Suffixes[0]
 
-				words[i] = wordInput + searchResult.Suffixes[0]
+				// Confirm the mnemonic's version is supported
+				if i == 0 {
+					if _, err := mnemonikey.ParseVersion(completedWord); err != nil {
+						eprint("\r\n" + red(err.Error()) + loadCursor)
+						continue
+					}
+				}
+
+				words[i] = completedWord
 				i += 1
 				break
 			}
@@ -174,6 +184,14 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 		if searchResult.ExactMatch {
 			// We have a match! Remove any error message if needed
 			eprint(eraseLineForward)
+
+			if i == 0 {
+				if _, err := mnemonikey.ParseVersion(wordInput); err != nil {
+					eprint(red(err.Error()))
+					goto next_word
+				}
+			}
+
 			words[i] = wordInput
 			i += 1
 		} else {
@@ -182,6 +200,7 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 		}
 
 		// Up to start of previous input line and wipe previous line from terminal
+	next_word:
 		eprint(previousLine + eraseLineForward)
 	}
 

@@ -44,12 +44,14 @@ func hkdfExpand(seedBytes []byte, size int, info []byte) ([]byte, error) {
 //
 // The opts struct can also provide subkey indices which will cause different subkeys
 // to be generated.
-func derivePGPKeySet(seedBytes []byte, creation time.Time, opts *KeyOptions) (*pgp.KeySet, error) {
+func derivePGPKeySet(seed *Seed, creation time.Time, opts *KeyOptions) (*pgp.KeySet, error) {
 	var expiry time.Time
 	if opts.TTL > 0 {
 		// Floor expiry to a unix second.
 		expiry = time.Unix(creation.Add(opts.TTL).Unix(), 0).UTC()
 	}
+
+	seedBytes := seed.Bytes()
 
 	masterKeySeed, err := hkdfExpand(seedBytes, 32, []byte(keyExpandInfoMaster))
 	if err != nil {
