@@ -22,7 +22,7 @@ Please see [the discussions board](https://github.com/kklash/mnemonikey/discussi
 
 ## PGP Key Backup Alternatives
 
-|Backup Format|Secure|Memorizable|Offline|Robust|
+|Backup Format|Secure By Default|Memorizable|Offline|Robust|
 |:-----------:|:----:|:---------:|:-----:|:------------------------:|
 |Secret Key File on a hard drive or SD card|:heavy_check_mark:|:x:|:x:|:x:|
 |[`passphrase2pgp`](https://github.com/skeeto/passphrase2pgp)|:x:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
