@@ -59,7 +59,7 @@ Here follows a specification which would allow anyone to re-implement `mnemonike
 | Key Creation Offset | The number of seconds after the mnemonikey epoch when the PGP key set was created. This offset is serialized as a 30-bit unsigned integer in the backup payload. |
 | Seed | A securely-generated random integer, containing 128 bits of entropy. |
 | Backup Payload | The combination of a seed and key creation offset. Together, they form a backup payload, which can be used to fully recover a PGP key set. |
-| Root Key | A 32-byte psuedo-random key derived from the seed and key creation time. |
+| Root Key | A 32-byte pseudo-random key derived from the seed and key creation time. |
 | Recovery Phrase / Mnemonic Phrase | A sequence of 15 English words which encodes the backup payload and checksum. |
 | Checksum Generator Polynomial | The CRC-32 IEEE generator polynomial. Used for checksumming the backup payload. ( $x^{32} + x^{26} + x^{23} + x^{22} + x^{16} + x^{12} + x^{11} + x^{10} + x^{8} + x^{7} + x^{5} + x^{4} + x^{2} + x + 1$ ) |
 
