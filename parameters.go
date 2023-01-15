@@ -12,10 +12,10 @@ const EpochIncrement = time.Second
 
 // EpochStart is the start of the epoch after which key creation times are encoded
 // in recovery phrases. It is exactly midnight in UTC time on the new year's eve
-// between 2021 and 2022.
+// between 2022 and 2023.
 //
-// In unix time, this epoch is exactly 1640995200 seconds after the unix epoch.
-var EpochStart = time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
+// In unix time, this epoch is exactly 1672531200 seconds after the unix epoch.
+var EpochStart = time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 
 // checksumTable is the precomputed table used to create checksums of backup payloads.
 const (
