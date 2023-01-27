@@ -7,16 +7,16 @@ import (
 )
 
 // BitsPerWord is the number of bits of information represented by each word
-// in a BIP39 mnemonic phrase.
-const BitsPerWord uint = 11
+// in a mnemonic phrase.
+const BitsPerWord uint = 12
 
 var wordMask = big.NewInt(int64((1 << BitsPerWord) - 1))
 
-// ErrInvalidIndex is returned when given a BIP39 word index which
+// ErrInvalidIndex is returned when given a word index which
 // cannot be represented in at most BitsPerWord bits.
 var ErrInvalidIndex = errors.New("mnemonic index value is too large")
 
-// EncodeToIndices encodes the given payload as a slice of BIP39 word indices.
+// EncodeToIndices encodes the given payload as a slice of word indices.
 func EncodeToIndices(payloadInt *big.Int, bitSize uint) []uint16 {
 	nWords := (bitSize + BitsPerWord - 1) / BitsPerWord
 	indices := make([]uint16, nWords)
@@ -27,8 +27,8 @@ func EncodeToIndices(payloadInt *big.Int, bitSize uint) []uint16 {
 	return indices
 }
 
-// EncodeToMnemonic encodes the given BIP39 word indices as a BIP39 english
-// mnemonic phrase. The returned mnemonic is encoded with lower-case characters.
+// EncodeToMnemonic encodes the given word indices as a mnemonic phrase.
+// The returned mnemonic is encoded with lower-case characters.
 //
 // Returns ErrInvalidIndex if any of the given indices are outside the
 // domain of the word list.

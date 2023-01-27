@@ -56,7 +56,7 @@ var RecoverCommand = &Command[RecoverOptions]{
 			"word-file",
 			"",
 			"Read the words of the mnemonic from this `file`. Words should be separated by whitespace "+
-				"and the file should contain the exact 15 words. Useful for debugging.",
+				"and the file should contain the exact words. Useful for debugging.",
 		)
 
 		flags.BoolVar(

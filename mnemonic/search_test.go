@@ -29,7 +29,7 @@ func TestSearch(t *testing.T) {
 			ExactMatch: false,
 		},
 		{
-			Query:      "bridge",
+			Query:      "briar",
 			Suffixes:   []string{""},
 			ExactMatch: true,
 		},
@@ -40,22 +40,27 @@ func TestSearch(t *testing.T) {
 		},
 		{
 			Query:      "zoo",
-			Suffixes:   []string{""},
-			ExactMatch: true,
+			Suffixes:   []string{"m"},
+			ExactMatch: false,
 		},
 		{
 			Query:      "inc",
-			Suffixes:   []string{"h", "lude", "ome", "rease"},
+			Suffixes:   []string{"ense", "h", "ision", "lude", "ome", "ubate"},
 			ExactMatch: false,
 		},
 		{
 			Query:      "car",
-			Suffixes:   []string{"", "bon", "d", "go", "pet", "ry", "t"},
+			Suffixes:   []string{"amel", "bon", "cass", "d", "eful", "go", "ibou", "nival", "ousel", "ry", "sick", "toon", "ve"},
+			ExactMatch: false,
+		},
+		{
+			Query:      "emu",
+			Suffixes:   []string{"", "late"},
 			ExactMatch: true,
 		},
 		{
 			Query:      "ran",
-			Suffixes:   []string{"ch", "dom", "ge"},
+			Suffixes:   []string{"cher", "dom", "sack"},
 			ExactMatch: false,
 		},
 		{

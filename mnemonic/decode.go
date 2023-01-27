@@ -8,10 +8,10 @@ import (
 )
 
 // ErrInvalidWord is returned when a word is passed to DecodeMnemonic which is not
-// a member of the BIP39 english word list.
-var ErrInvalidWord = errors.New("word is not a member of the BIP39 word list")
+// a member of the wordlist.
+var ErrInvalidWord = errors.New("word is not a member of the wordlist")
 
-// DecodeIndices decodes the given BIP39 indices into an integer representation.
+// DecodeIndices decodes the given wordlist indices into an integer representation.
 //
 // Returns ErrInvalidIndex if any of the given indices are outside the
 // domain of the word list size.
@@ -30,10 +30,9 @@ func DecodeIndices(indices []uint16) (*big.Int, error) {
 }
 
 // DecodeMnemonic decodes the given mnemonic phrase into their indices in the
-// BIP39 english word list. The words can be in either upper or lower case.
+// wordlist. The words can be in either upper or lower case.
 //
-// Returns ErrInvalidWord if any of the words are not members of the BIP39
-// english word list.
+// Returns ErrInvalidWord if any of the words are not members of the wordlist.
 func DecodeMnemonic(words []string) ([]uint16, error) {
 	indices := make([]uint16, len(words))
 	for i, word := range words {

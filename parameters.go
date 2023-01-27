@@ -24,10 +24,10 @@ const (
 	VersionLatest uint = 0
 
 	// VersionBitCount is the number of bits in the backup payload reserved for the version number.
-	VersionBitCount uint = 2
+	VersionBitCount uint = 4
 
 	// CreationOffsetBitCount is the number of bits used to represent a key creation offset.
-	CreationOffsetBitCount uint = 30
+	CreationOffsetBitCount uint = 31
 
 	// ChecksumBitCount is the number of bits in the backup payload reserved for the checksum.
 	ChecksumBitCount uint = 5
@@ -36,8 +36,8 @@ const (
 	EntropyBitCount = 128
 
 	// MnemonicSize is the number of mnemonic words needed to encode
-	// both the key creation offset and 128 bits of seed entropy.
-	MnemonicSize uint = 15
+	// the key creation offset, the checksum, and 128 bits of seed entropy.
+	MnemonicSize uint = 14
 )
 
 const checksumMask = (1 << ChecksumBitCount) - 1
