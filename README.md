@@ -410,6 +410,16 @@ This diagram demonstrates the **bit-level layout** of each word in the mnemonic,
              0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b
 ```
 
+|Field|Size|
+|-----|----|
+|Version Number|4 bits|
+|Entropy|128 bits|
+|Creation Offset|31 bits|
+|Checksum|5 bits|
+|---|---|
+|Total|168 Bits|
+|Words Needed|$\frac{168}{12}=14$|
+
 ## Version Number
 
 The version number tells Mnemonikey implementations how to decode the recovery phrase and derive the PGP keys from the backup payload. The version number may be incremented in the future, for example to fix a critical bug, support post-quantum key algorithms, or define a new key creation time epoch.
