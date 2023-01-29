@@ -420,6 +420,10 @@ This diagram demonstrates the **bit-level layout** of each word in the mnemonic,
 |Total|168 Bits|
 |Words Needed|$\frac{168}{12}=14$|
 
+## Wordlist
+
+To read more about the wordlist used to encode the Mnemonikey recovery phrases, [check out the separate `wordlist4096` repository](https://github.com/kklash/wordlist4096).
+
 ## Version Number
 
 The version number tells Mnemonikey implementations how to decode the recovery phrase and derive the PGP keys from the backup payload. The version number may be incremented in the future, for example to fix a critical bug, support post-quantum key algorithms, or define a new key creation time epoch.
