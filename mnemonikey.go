@@ -230,8 +230,12 @@ func (mnk *Mnemonikey) EncodeMnemonic() ([]string, error) {
 	payloadInt.Lsh(payloadInt, ChecksumBitCount)
 	payloadInt.Or(payloadInt, big.NewInt(int64(checksum)))
 
-	indices := mnemonic.EncodeToIndices(payloadInt, payloadBitCount+ChecksumBitCount)
-	words, err := mnemonic.EncodeToMnemonic(indices)
+	indices, err := mnemonic.EncodeToIndices(payloadInt, payloadBitCount+ChecksumBitCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode payload to indices: %w", err)
+	}
+
+	words, err := mnemonic.EncodeToWords(indices)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode indices to words: %w", err)
 	}

@@ -74,7 +74,7 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 
 | Dependency | Usage |
 |------------|-------|
-|[wordlist-4096](https://github.com/kklash/wordlist-4096)|An English word list for mnemonic encoding. Encodes the backup payload into a form that is easy to write down on paper, or remember mnemonically. Each word is one of 4096 potential words, thus encodes 12 bits of information.|
+|[`wordlist4096`](https://github.com/kklash/wordlist4096)|An English word list for mnemonic encoding. Encodes the backup payload into a form that is easy to write down on paper, or remember mnemonically. Each word is one of 4096 potential words, thus encodes 12 bits of information.|
 |[HMAC-based Key Derivation Function (HKDF)](https://www.rfc-editor.org/rfc/rfc5869)|Stretches the root key into suitable PGP private keys. |
 |[ED25519 (EdDSA)](https://ed25519.cr.yp.to/)|Algorithm used for the certification master key, and for the authentication and signing subkeys. Used to create signatures to bind the PGP key set together.|
 |[Curve25519 (ECDH)](https://en.wikipedia.org/wiki/Curve25519)|Generates the encryption subkey.|

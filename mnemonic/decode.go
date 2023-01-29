@@ -5,9 +5,11 @@ import (
 	"math/big"
 	"math/bits"
 	"strings"
+
+	"github.com/kklash/wordlist4096"
 )
 
-// ErrInvalidWord is returned when a word is passed to DecodeMnemonic which is not
+// ErrInvalidWord is returned when a word is passed to DecodeWords which is not
 // a member of the wordlist.
 var ErrInvalidWord = errors.New("word is not a member of the wordlist")
 
@@ -29,14 +31,14 @@ func DecodeIndices(indices []uint16) (*big.Int, error) {
 	return payloadInt, nil
 }
 
-// DecodeMnemonic decodes the given mnemonic phrase into their indices in the
+// DecodeWords decodes the given set of words into their indices in the
 // wordlist. The words can be in either upper or lower case.
 //
 // Returns ErrInvalidWord if any of the words are not members of the wordlist.
-func DecodeMnemonic(words []string) ([]uint16, error) {
+func DecodeWords(words []string) ([]uint16, error) {
 	indices := make([]uint16, len(words))
 	for i, word := range words {
-		index, ok := WordMap[strings.ToLower(word)]
+		index, ok := wordlist4096.WordMap[strings.ToLower(word)]
 		if !ok {
 			return nil, ErrInvalidWord
 		}

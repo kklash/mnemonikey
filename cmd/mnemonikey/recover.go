@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/kklash/mnemonikey"
-	"github.com/kklash/mnemonikey/mnemonic"
+	"github.com/kklash/wordlist4096"
 )
 
 const maxSubkeyIndex uint = 0xFFFF
@@ -180,7 +180,7 @@ func readWordFile(fpath string) ([]string, error) {
 	words := make([]string, 0, mnemonikey.MnemonicSize)
 	for scanner.Scan() {
 		word := strings.ToLower(scanner.Text())
-		if _, ok := mnemonic.WordMap[word]; !ok {
+		if _, ok := wordlist4096.WordMap[word]; !ok {
 			return nil, fmt.Errorf("found word in %s not present in wordlist", fpath)
 		}
 		words = append(words, word)

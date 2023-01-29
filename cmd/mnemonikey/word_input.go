@@ -13,7 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/kklash/mnemonikey"
-	"github.com/kklash/mnemonikey/mnemonic"
+	"github.com/kklash/wordlist4096"
 )
 
 const (
@@ -94,7 +94,7 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 			}
 
 			// See if the user's input might be a valid word in the wordlist.
-			searchResult := mnemonic.Search(wordInput)
+			searchResult := wordlist4096.Search(wordInput)
 
 			// Autocomplete without submitting
 			if charBuf[0] == '\t' && len(searchResult.Suffixes) > 0 {
@@ -179,7 +179,7 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 		wordInput := strings.ToLower(strings.TrimSpace(scanner.Text()))
 
 		// See if the user's input might be a valid word in the wordlist.
-		searchResult := mnemonic.Search(wordInput)
+		searchResult := wordlist4096.Search(wordInput)
 
 		if searchResult.ExactMatch {
 			// We have a match! Remove any error message if needed

@@ -6,6 +6,7 @@ replace github.com/kklash/mnemonikey => ../..
 
 require (
 	github.com/kklash/mnemonikey v0.0.0-00010101000000-000000000000
+	github.com/kklash/wordlist4096 v0.0.0-20230128235818-1dcc136efd79
 	golang.org/x/term v0.3.0
 )
 
