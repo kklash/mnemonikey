@@ -41,7 +41,7 @@ var GenerateCommand = &Command[GenerateOptions]{
 			"",
 			"Write the words of the recovery phrase to this `file` in PLAIN TEXT. Useful for debugging. "+
 				"Do not use this if you care about keeping your keys safe. Words will be separated by a "+
-				"single space and the file will contain the exact 15 words and nothing else.",
+				"single space. The file will contain the exact words and nothing else.",
 		)
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {

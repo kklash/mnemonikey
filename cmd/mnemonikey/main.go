@@ -16,7 +16,7 @@ var subcommands = map[string]Runner{
 
 var RootCommand = &Command[RootOptions]{
 	Name:        "mnemonikey - https://github.com/kklash/mnemonikey",
-	Description: "Deterministically generate and recover OpenPGP keys with BIP39 mnemonic backup phrases.",
+	Description: "Deterministically generate and recover OpenPGP keys with mnemonic backup phrases.",
 	UsageExamples: []string{
 		"mnemonikey <COMMAND> [help | --help | -h] [OPTIONS]\n",
 		"mnemonikey generate  - Generate a new OpenPGP private key and display its recovery phrase.",

@@ -13,7 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/kklash/mnemonikey"
-	"github.com/kklash/mnemonikey/mnemonic"
+	"github.com/kklash/wordlist4096"
 )
 
 const (
@@ -28,7 +28,7 @@ func eprintln(values ...any)            { fmt.Fprintln(os.Stderr, values...) }
 // userInputMnemonic accepts raw input from the user's terminal
 // to get a mnemonic phrase of the given word count.
 //
-// Only returns words in the BIP39 word list.
+// Only returns words in the wordlist.
 func userInputMnemonic(wordCount uint) ([]string, error) {
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
@@ -93,8 +93,8 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 				break
 			}
 
-			// See if the user's input might be a valid BIP39 word.
-			searchResult := mnemonic.Search(wordInput)
+			// See if the user's input might be a valid word in the wordlist.
+			searchResult := wordlist4096.Search(wordInput)
 
 			// Autocomplete without submitting
 			if charBuf[0] == '\t' && len(searchResult.Suffixes) > 0 {
@@ -159,7 +159,7 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 // A simpler input process, used in cases where the raw terminal input
 // manipulation in userInputMnemonic doesn't work for some people.
 //
-// Only returns words in the BIP39 word list.
+// Only returns words in the wordlist.
 func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 	words := make([]string, wordCount)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -178,8 +178,8 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 		}
 		wordInput := strings.ToLower(strings.TrimSpace(scanner.Text()))
 
-		// See if the user's input might be a valid BIP39 word.
-		searchResult := mnemonic.Search(wordInput)
+		// See if the user's input might be a valid word in the wordlist.
+		searchResult := wordlist4096.Search(wordInput)
 
 		if searchResult.ExactMatch {
 			// We have a match! Remove any error message if needed

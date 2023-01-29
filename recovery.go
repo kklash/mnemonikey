@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kklash/mnemonikey/mnemonic"
+	"github.com/kklash/wordlist4096"
 )
 
 // ErrInvalidChecksum is returned when decoding a mnemonic fails due
@@ -49,7 +50,7 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 		err = ErrInvalidWordCount
 		return
 	}
-	indices, err := mnemonic.DecodeMnemonic(words)
+	indices, err := mnemonic.DecodeWords(words)
 	if err != nil {
 		return
 	}
@@ -97,12 +98,12 @@ func DecodeMnemonic(words []string) (seed *Seed, creation time.Time, err error) 
 // not supported by this version of the Mnemonikey library, thus saving them from entering
 // the whole phrase in needlessly.
 func ParseVersion(firstWord string) (version uint, err error) {
-	index, ok := mnemonic.WordMap[strings.ToLower(firstWord)]
+	index, ok := wordlist4096.WordMap[strings.ToLower(firstWord)]
 	if !ok {
 		return 0, mnemonic.ErrInvalidWord
 	}
 
-	version = uint(index) >> (mnemonic.BitsPerWord - VersionBitCount)
+	version = uint(index) >> (wordlist4096.BitsPerWord - VersionBitCount)
 	err = checkSeedVersion(version)
 	return
 }
