@@ -23,9 +23,6 @@ var ErrInvalidWordCount = fmt.Errorf("mnemonics must be %d words long", Mnemonic
 // Recover decodes a seed and creation offset from the given recovery mnemonic and
 // re-derives its child PGP keys.
 //
-// The given name and email must be the same as was used to originally generate the key,
-// otherwise the key fingerprint will not match.
-//
 // If the original key's user ID is not a standard RFC-2822 mail name-addr format (NAME <EMAIL>),
 // then simply provide the entire user ID as the name parameter, and leave the email parameter
 // empty.

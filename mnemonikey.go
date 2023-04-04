@@ -104,7 +104,7 @@ func (mnk *Mnemonikey) UserID() string {
 	return string(mnk.pgpKeySet.UserID.Encode())
 }
 
-// FingerprintV4 returns the SHA1 hash of the master key and the key user ID.
+// FingerprintV4 returns the SHA1 hash of the master key.
 func (mnk *Mnemonikey) FingerprintV4() []byte {
 	return mnk.pgpKeySet.MasterKey.FingerprintV4()
 }
