@@ -18,7 +18,6 @@ const (
 	argonTimeFactor   uint32 = 4
 	argonMemoryFactor uint32 = 0x80000 // 512MB
 	argonThreads      uint8  = 2
-	argonKeyLen       uint32 = 32
 )
 
 // keyExpandInfoMaster is the string used as the 'info' parameter to the
@@ -64,7 +63,7 @@ func derivePGPKeySet(seed *Seed, creation time.Time, opts *KeyOptions) (*pgp.Key
 	rootKeySalt := make([]byte, 4)
 	binary.BigEndian.PutUint32(rootKeySalt, uint32(creation.Unix()))
 
-	rootKey := argon2.IDKey(seed.Bytes(), rootKeySalt, argonTimeFactor, argonMemoryFactor, argonThreads, argonKeyLen)
+	rootKey := argon2.IDKey(seed.Bytes(), rootKeySalt, argonTimeFactor, argonMemoryFactor, argonThreads, 32)
 
 	masterKeySeed, err := hkdfExpand(rootKey, 32, []byte(keyExpandInfoMaster))
 	if err != nil {

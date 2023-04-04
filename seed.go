@@ -2,7 +2,6 @@ package mnemonikey
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -10,39 +9,49 @@ import (
 
 var bigOne = big.NewInt(1)
 
-// ErrUnsupportedSeedVersion is returned when an unknown or outdated version
-// number was used - For example, this can occur when recovering or decoding
-// a mnemonikey backup phrase exported by a newer version of mnemonikey.
-var ErrUnsupportedSeedVersion = errors.New("unsupported seed version number")
-
 // Seed represents a seed which was generated with a specific number of bits of entropy.
-// Each Seed contains a version number which indicates how the seed should be used to
+// Each Seed contains an era number which indicates how the seed should be used to
 // derive PGP keys.
 //
 // Byte-representations of that seed should always be a fixed size, regardless of the
 // actual integer value of the seed.
 type Seed struct {
-	Version uint
-	Value   *big.Int
+	era   Era
+	value *big.Int
 }
 
-// NewSeed constructs a Seed at a given version number using the provided entropy integer.
+// NewSeed constructs a Seed with a given era number using the provided entropy integer.
 //
-// Returns ErrUnsupportedSeedVersion if the version number is greater than VersionLatest.
-func NewSeed(version uint, entropyInt *big.Int) (*Seed, error) {
-	if err := checkSeedVersion(version); err != nil {
+// Returns ErrUnsupportedSeedEra if the era number is greater than EraLatest.
+func NewSeed(era Era, entropyInt *big.Int) (*Seed, error) {
+	if err := era.check(); err != nil {
 		return nil, err
 	}
 	seed := &Seed{
-		Version: version,
-		Value:   entropyInt,
+		era:   era,
+		value: entropyInt,
 	}
 	return seed, nil
 }
 
+// Era returns the era number of the seed, used for determining how keys are derived.
+func (seed *Seed) Era() Era {
+	return seed.era
+}
+
+// Int returns a copy of the seed entropy value as an integer.
+func (seed *Seed) Int() *big.Int {
+	return new(big.Int).Set(seed.value)
+}
+
+// Bytes returns the big-endian byte representation of seed.Int().
+func (seed *Seed) Bytes() []byte {
+	return seed.value.FillBytes(make([]byte, (EntropyBitCount+7)/8))
+}
+
 // GenerateSeed generates a random Seed using the given random source.
 //
-// The generated seed will use VersionLatest.
+// The generated seed will use EraLatest.
 func GenerateSeed(random io.Reader) (*Seed, error) {
 	maxSeedInt := new(big.Int).Lsh(bigOne, EntropyBitCount)
 	entropyInt, err := rand.Int(random, maxSeedInt)
@@ -53,17 +62,5 @@ func GenerateSeed(random io.Reader) (*Seed, error) {
 		)
 	}
 
-	return NewSeed(VersionLatest, entropyInt)
-}
-
-// Bytes returns the big-endian byte representation of seed.Value.
-func (seed *Seed) Bytes() []byte {
-	return seed.Value.FillBytes(make([]byte, (EntropyBitCount+7)/8))
-}
-
-func checkSeedVersion(version uint) error {
-	if version > VersionLatest {
-		return fmt.Errorf("%w: %d", ErrUnsupportedSeedVersion, version)
-	}
-	return nil
+	return NewSeed(EraLatest, entropyInt)
 }

@@ -2,10 +2,11 @@ package mnemonikey
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	mrand "math/rand"
 	"os"
 	"os/exec"
 	"reflect"
@@ -63,7 +64,7 @@ func TestMnemonikey(t *testing.T) {
 		t.Fatalf("failed to instantiate temporary GPG: %s", err)
 	}
 
-	seed, err := GenerateSeed(rand.New(rand.NewSource(0)))
+	seed, err := GenerateSeed(mrand.New(mrand.NewSource(0)))
 	if err != nil {
 		t.Fatalf("failed to generate seed: %s", err)
 	}
@@ -82,22 +83,9 @@ func TestMnemonikey(t *testing.T) {
 		t.Fatalf("failed to derive Mnemonikey: %s", err)
 	}
 
-	words, err := mnk.EncodeMnemonic()
-	if err != nil {
-		t.Fatalf("failed to encode key as mnemonic: %s", err)
-	}
-
-	recoveredKey, err := Recover(words, keyOpts)
-	if err != nil {
-		t.Fatalf("failed to derive recovered Mnemonikey: %s", err)
-	}
-
 	t.Run("fingerprint matches", func(t *testing.T) {
 		if actualFpr := fmt.Sprintf("%X", mnk.FingerprintV4()); actualFpr != fingerprint {
 			t.Fatalf("fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
-		}
-		if actualFpr := fmt.Sprintf("%X", recoveredKey.FingerprintV4()); actualFpr != fingerprint {
-			t.Fatalf("recovered key fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
 		}
 
 		actualEncryptionSubkeyFingerprint := fmt.Sprintf("%X", mnk.SubkeyFingerprintV4(SubkeyTypeEncryption))
@@ -107,18 +95,62 @@ func TestMnemonikey(t *testing.T) {
 				encryptionSubkeyFingerprint, actualEncryptionSubkeyFingerprint,
 			)
 		}
+	})
 
-		recoveredEncryptionSubkeyFingerprint := fmt.Sprintf("%X", recoveredKey.SubkeyFingerprintV4(SubkeyTypeEncryption))
-		if recoveredEncryptionSubkeyFingerprint != encryptionSubkeyFingerprint {
-			t.Fatalf(
-				"recovered encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
-				encryptionSubkeyFingerprint, recoveredEncryptionSubkeyFingerprint,
-			)
+	recoveredKeys := []*Mnemonikey{}
+
+	t.Run("encode and recover plaintext mnemonic", func(t *testing.T) {
+		words, err := mnk.EncodeMnemonicPlaintext()
+		if err != nil {
+			t.Fatalf("failed to encode key as plaintext mnemonic: %s", err)
+		}
+
+		recoveredKey, err := RecoverPlaintext(words, keyOpts)
+		if err != nil {
+			t.Fatalf("failed to derive recovered plaintext Mnemonikey: %s", err)
+		}
+
+		recoveredKeys = append(recoveredKeys, recoveredKey)
+	})
+
+	t.Run("encode and recover encrypted mnemonic", func(t *testing.T) {
+		password := []byte("password123")
+		words, err := mnk.EncodeMnemonicEncrypted(password, rand.Reader)
+		if err != nil {
+			t.Fatalf("failed to encode key as encrypted mnemonic: %s", err)
+		}
+
+		recoveredKey, err := RecoverEncrypted(words, password, keyOpts)
+		if err != nil {
+			t.Fatalf("failed to derive recovered encrypted Mnemonikey: %s", err)
+		}
+
+		recoveredKeys = append(recoveredKeys, recoveredKey)
+	})
+
+	t.Run("recovered key fingerprint matches", func(t *testing.T) {
+		for _, recoveredKey := range recoveredKeys {
+			if actualFpr := fmt.Sprintf("%X", recoveredKey.FingerprintV4()); actualFpr != fingerprint {
+				t.Fatalf("recovered key fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
+			}
+
+			recoveredEncryptionSubkeyFingerprint := fmt.Sprintf("%X", recoveredKey.SubkeyFingerprintV4(SubkeyTypeEncryption))
+			if recoveredEncryptionSubkeyFingerprint != encryptionSubkeyFingerprint {
+				t.Fatalf(
+					"recovered encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
+					encryptionSubkeyFingerprint, recoveredEncryptionSubkeyFingerprint,
+				)
+			}
 		}
 	})
 
 	t.Run("subkey indices can be incremented", func(t *testing.T) {
-		incrementedKey, err := Recover(words, &KeyOptions{
+		words, err := mnk.EncodeMnemonicPlaintext()
+		if err != nil {
+			t.Fatalf("failed to encode key as plaintext mnemonic: %s", err)
+		}
+
+		incrementedKey, err := RecoverPlaintext(words, &KeyOptions{
 			Name:                  keyOpts.Name,
 			Email:                 keyOpts.Email,
 			EncryptionSubkeyIndex: 1,
@@ -147,7 +179,7 @@ func TestMnemonikey(t *testing.T) {
 	t.Run("exporting to OpenPGP and importing into GPG", func(t *testing.T) {
 		gpgs := []*GPG{gpg, recoveredGPG}
 
-		for i, kp := range []*Mnemonikey{mnk, recoveredKey} {
+		for i, kp := range append([]*Mnemonikey{mnk}, recoveredKeys[0]) {
 			gpg := gpgs[i]
 			description := "Mnemonikey"
 			if i == 1 {
@@ -208,10 +240,15 @@ func TestMnemonikey(t *testing.T) {
 	})
 
 	t.Run("checksum in recovery phrase detects errors", func(t *testing.T) {
+		words, err := mnk.EncodeMnemonicPlaintext()
+		if err != nil {
+			t.Fatalf("failed to encode key as plaintext mnemonic: %s", err)
+		}
+
 		wordsBad := append([]string{}, words...)
 		wordsBad[4] = "hurt"
 
-		if _, err := Recover(wordsBad, keyOpts); !errors.Is(err, ErrInvalidChecksum) {
+		if _, err := RecoverPlaintext(wordsBad, keyOpts); !errors.Is(err, ErrInvalidChecksum) {
 			t.Fatalf("expected to get ErrInvalidChecksum when mnemonic was corrupted, got: %s", err)
 		}
 	})

@@ -44,11 +44,33 @@ To use `mnemonikey` as a Golang library:
 $ go get -u github.com/kklash/mnemonikey
 ```
 
+## Background
+
+Normally, PGP key backups must be done manually by backing up private key export files, but files can be easily lost, corrupted, or deleted accidentally. Whenever new subkeys are added to the master key, the backup must be updated manually. This is a risky and error-prone practice, as I have personally discovered several times.
+
+The [`paperkey`](https://www.jabberwocky.com/software/paperkey/) backup tool is also similarly fragile, as it involves either copying by-hand a large blob of hexadecimal numbers, or printing `paperkey`'s output to paper. Copying by-hand risks errors in duplication, and printing risks exposure of your private key material to a printer, which are not known for prioritizing security in their design: Many printers run outdated firmware, are wide-open by default on wireless networks, and [may cache plaintext copies of the documents they've printed, in memory or on-disk](https://www.cbsnews.com/news/digital-photocopiers-loaded-with-secrets/).
+
+Many early users of [Bitcoin](https://bitcoin.org) also learned this lesson in a different context. In 2013, [mnemonic recovery phrases were invented to resolve it](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). They eventually became the norm for Bitcoin wallet backups.
+
+|Bitcoin Recovery Phrase|`paperkey` Output|
+|:-:|:-:|
+|<img src="https://user-images.githubusercontent.com/31221309/204943520-481fb5a0-36fe-4329-ac12-dd271b8375aa.jpg">|<img src="https://user-images.githubusercontent.com/31221309/204945149-cce0de55-9a03-4d28-9839-32946be90d9e.png">|
+
+<sub>On the left, a 12-word Bitcoin BIP39 recovery phrase written on paper. On the right, the output of [`paperkey`](https://www.jabberwocky.com/software/paperkey/). Which would you rather use to recover the root of your digital identity?</sub>
+
+
 # Specification :scroll:
 
 Here follows a specification which would allow anyone to re-implement `mnemonikey` in another language.
 
 -------------
+
+## Goals
+
+Mnemonikey is primarily concerned with defining two high-level procedures:
+
+- **Key Derivation:** Deterministically deriving a usable PGP key set from a seed and key creation time.
+- **Mnemonic Encoding:** Encoding a seed and key creation time into a mnemonic phrase for later decoding & recovery.
 
 ## Definitions
 
@@ -63,13 +85,6 @@ Here follows a specification which would allow anyone to re-implement `mnemonike
 | Recovery Phrase / Mnemonic Phrase | A sequence of English words which encodes the backup payload and checksum. |
 | Checksum Generator Polynomial | The CRC-32 IEEE generator polynomial. Used for checksumming the backup payload. ( $x^{32} + x^{26} + x^{23} + x^{22} + x^{16} + x^{12} + x^{11} + x^{10} + x^{8} + x^{7} + x^{5} + x^{4} + x^{2} + x + 1$ ) |
 
-## Goals
-
-Mnemonikey is primarily concerned with defining two high-level procedures:
-
-- **Key Derivation:** Deterministically deriving a usable PGP key set from a seed and key creation time.
-- **Mnemonic Encoding:** Encoding a seed and key creation time into a mnemonic phrase for later decoding & recovery.
-
 ## Dependencies
 
 | Dependency | Usage |
@@ -81,14 +96,76 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 |[CRC (cyclic redundancy check)](https://en.wikipedia.org/wiki/Cyclic_redundancy_check)|Used for checksumming the backup payload.|
 |[Argon2id](https://www.rfc-editor.org/rfc/rfc9106.html)|Memory-hard password hashing algorithm. Used to slow down brute-force attacks on derived keys. Version 1.3 is used.|
 
+## Standards
+
+Before diving into the exact specification for derivation and encoding, we must first agree on some notation and common standards which will be used when handling data.
+
+### Fixed Bit Sizes
+
+All serializable integer values have fixed sizes which indicate the maximum number of bits which can be used to represent them in memory. Usually these sizes are specified explicitly.
+
+Sometimes we explicitly cast unsigned integers to fixed-size types for clarity. For example, extracting the least-significant 4 bits of a number and casting it as a fixed-size 4-bit integer:
+
+```python
+uint4(n & 0xF)
+```
+
+### Concatenation
+
+When operating on unsigned integers, the `||` operator denotes bitwise concatenation. Explicitly:
+
+```python
+x || y = (x << y.bitSize()) | y
+```
+
+...where `bitSize()` is a method which returns the fixed bit-size of `y`. The fixed bit-size of an integer is always explicitly given in this specification, _unless_ the number is the result of concatenation.
+
+After concatenation, the fixed bit size of a concatenated number is the sum of the bit lengths of its composite numbers `x` and `y`.
+
+```python
+(x || y).bitSize() = x.bitSize() + y.bitSize()
+```
+
+### Serialization
+
+When serializing fixed-size integers to byte arrays, **big-endian representations are always used.** If there is any unused space left over in a serialized byte array, these unused bits are always left as the most significant bits, and are set to zero.
+
+For example, a 32-bit unsigned integer representing the number `1592` would be represented in binary as:
+
+```
+00000000000000000000011000111000
+```
+
+This would serialize as the following byte array:
+
+```python
+[0x00, 0x00, 0x06, 0x1C]
+```
+
+The serialization process will be denoted by invoking a `bytes()` function on the integer value. E.g.
+
+```python
+bytes(uint32(1592)) = [0x00, 0x00, 0x06, 0x1C]
+```
+
+The reverse deserialization process - decoding an integer from a byte array - will be denoted by invoking a `uint()` function on the byte array value:
+
+```python
+uint([0x00, 0x00, 0x06, 0x1C]) = uint32(1592)
+```
+
+The fixed-size of the resulting unsigned integer will be 8 times the length of the serialized byte array.
+
 ## Key Derivation
+
+The key derivation process deterministically constructs PGP keys from input seed data.
 
 ### Inputs
 
 | Input | Description | Required |
 |:-----:|:-----------:|:--------:|
-|`version`| A 4-bit version number. The current latest version number is `0`. | YES |
-|`seed`| A securely-generated random integer with 128 bits of entropy. | YES |
+|`era`| An integer enum for versioning. The era describes how the inputs should be derived into keys. The current latest era number is `0`. New era numbers may be defined in the future which change the inner workings of mnemonikey PGP key derivation. | YES |
+|`seed`| A securely-generated random unsigned integer with 128 bits of entropy. | YES |
 |`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **31-bit** unsigned integer. | YES |
 |`name`| A human-readable display name used to build the PGP key's user-identifier string. | NO |
 |`email`| An email address used to build the PGP key's user-identifier string. | NO |
@@ -102,50 +179,109 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 
 A serialized PGP private key set, containing a certification-enabled ED25519 master key, along with properly bound signing, encryption, and authentication subkeys.
 
-- If `password` was provided, the output PGP key set's private keys will be encrypted symmetrically using OpenPGP's String-to-Key (S2K) protocol.
-- If `ttl` was provided, the output PGP key set's keys will be set to expire at `ttl` seconds after the key creation time.
-- If `name` and/or `email` was provided, they form the key's user-identifier (UID).
+If `password` was provided, the output PGP key set's private keys will be encrypted symmetrically using OpenPGP's String-to-Key (S2K) protocol.
 
-The keys will have been deterministically generated by the inputs.
+If `ttl` was provided, the output PGP key set's keys will be set to expire at `ttl` seconds after the key creation time.
+
+If `name` and/or `email` was provided, they form the key's user-identifier (UID).
+
+The keys will have been deterministically generated by the inputs. Repeating the same process with the same inputs will yield the exact same serialized PGP keys.
 
 ### Procedure
 
-1. If the `version` number is greater than `0`, fail with an unsupported version error.
-1. Determine the exact key creation timestamp based on `creationOffset` by interpreting `creationOffset` as the number of seconds after the Mnemonikey Epoch.
-    - `creation = creationOffset + 1672531200`
-1. Derive the _root key_ from `seed` and `creation` using Argon2id.
-    - The big-endian serialization of `seed` is used as the Argon2id password parameter:
-        - `password = seed.to_bytes(16, 'big')`
-    - The big-endian serialization of `creation` is used as the Argon2id salt parameter:
-        - `salt = creation.to_bytes(4, 'big')`
-    - The remaining Argon2id parameters are `time=4`, `memory=0x80000` (512MB), `threads=2`, and `keyLen=32`
-    - `rootKey = argon2id(password, salt, time, memory, threads, keyLen)`
-1. Derive the PGP master key and subkeys from `rootKey` using `HDKF-Expand`.
-    - To derive the ED25519 master certification key, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256 with the string `"mnemonikey master key"` as the _info_ parameter.
-    - For each of the subkeys, the `HKDF-Expand` _info_ parameter is built as follows:
-        - Begin with the string `"mnemonikey TYPE subkey"`, where `TYPE` is replaced by any of `"encryption"`, `"authentication"`, or `"signing"` depending on the type of subkey.
-        - Serialize and append a 16-bit big-endian subkey index parameter for the subkey (`encSubkeyIndex` for the encryption subkey, etc).
-        - For example, to derive the encryption subkey at index `3`: `info = b"mnemonikey encryption subkey\x00\x03"`
-    - To derive the Curve25519 ECDH encryption subkey, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the _info_ parameter built as described above.
-    - To derive the ED25519 authentication subkey, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the _info_ parameter built as described above.
-    - To derive the ED25519 signing subkey, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the _info_ parameter built as described above.
-1. Derive the ED25519 and Curve25519 public keys for the master key and subkeys.
-    - The exact cryptographic procedure for public-key derivation and signatures is out-of-scope for this specification. See [the original Curve25519 paper](https://cr.yp.to/ecdh/curve25519-20060209.pdf) and [the original ED25519 paper](https://ed25519.cr.yp.to/ed25519-20110926.pdf) by Daniel Bernstein and friends.
-    - Most modern languages will have libraries available to perform this cryptography for you.
-1. Build a PGP user ID (UID) string.
-    - If `name` is defined, and `email` is not, set `uid = name`.
-    - If `email` is defined, and `name` is not, set `uid = email`.
-    - If both `name` and `email` are defined, set `uid = name + " <" + email + ">"`.
-1. Use the master certification key to create a positive self-certification signature on the master key, committing to `uid` and `creation`.
-    - If `ttl` is defined, use it to define the master key expiry time `creation + ttl`, and commit the self-certification signature to that expiry.
-    - Refer to [the OpenPGP packet format specification](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-computing-signatures) to see how this signature should be computed.
-    - This signature should also commit to the symmetric cipher algorithm AES-256, and the hash algorithm SHA-256, as keyholder preferences.
-    - Call this `certificationSig`.
-1. Use the master certification key to create binding signatures on each subkey, committing to `creation`.
-    - If `ttl` is defined, commit the binding signatures to `creation + ttl` as the subkey expiry time.
-    - Refer to [the OpenPGP packet format specification](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-computing-signatures) to see how these signatures should be computed.
-    - Call these `encryptionBindSig`, `authenticationBindSig`, and `signingBindSig` for the encryption, authentication, and signing subkeys respectively.
-1. Serialize and return the following as OpenPGP packets:
+1. If the `era` number is greater than `0`, fail with an unsupported version error.
+2. Determine the exact key creation timestamp based on `creationOffset` by interpreting `creationOffset` as the number of seconds after the Mnemonikey Epoch.
+
+    ```python
+    creation = creationOffset + 1672531200
+    ```
+
+3. Derive the _root key_ from `seed` and `creation` using Argon2id.
+
+    The big-endian serialization of `seed` is used as the Argon2id password parameter:
+
+    ```python
+    password = bytes(seed)
+    ```
+
+    The big-endian serialization of `creation` is used as the Argon2id salt parameter:
+
+    ```python
+    salt = bytes(creation)
+    ```
+
+    The remaining Argon2id parameters are `time=4`, `memory=0x80000` (512MB), `threads=2`, and `keyLen=32`.
+
+    ```python
+    rootKey = argon2id(password, salt, time, memory, threads, keyLen)
+    ```
+
+4. Derive the PGP master key and subkeys from `rootKey` using `HDKF-Expand`.
+
+    To derive the ED25519 master certification key, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the string `"mnemonikey master key"` as the _info_ parameter.
+
+    For each of the subkeys, the `HKDF-Expand` _info_ parameter is built as follows:
+
+    - Begin with the string `"mnemonikey TYPE subkey"`, where `TYPE` is replaced by any of `"encryption"`, `"authentication"`, or `"signing"` depending on the type of subkey.
+    - Serialize and append a 16-bit big-endian subkey index parameter for the subkey. Use `encSubkeyIndex` for the encryption subkey, `authSubkeyIndex` for the authentication subkey, etc.
+
+    <br>
+
+    > Example: To derive the encryption subkey at index `3`
+    >
+    > ```python
+    > info = b"mnemonikey encryption subkey\x00\x03"
+    > ```
+
+    To derive the Curve25519 ECDH encryption subkey, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the _info_ parameter built as described above.
+
+    To derive the ED25519 authentication subkey, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the _info_ parameter built as described above.
+
+    To derive the ED25519 signing subkey, read 32 bytes from `HDKF-Expand` on `rootKey` using SHA256, with the _info_ parameter built as described above.
+
+5. Compute the ED25519 and Curve25519 public keys for the master key and subkeys.
+
+    The exact cryptographic procedure for public-key derivation and signatures is out-of-scope for this specification. See [the original Curve25519 paper](https://cr.yp.to/ecdh/curve25519-20060209.pdf) and [the original ED25519 paper](https://ed25519.cr.yp.to/ed25519-20110926.pdf) by Daniel Bernstein and friends.
+
+    Most modern languages will have libraries available to perform this cryptography for you.
+
+6. Build a PGP user ID (UID) string.
+
+    If `name` is defined, and `email` is not, use `name` as the user ID.
+
+    ```python
+    uid = name
+    ```
+
+    If `email` is defined, and `name` is not, use `email` as the user ID.
+
+    ```python
+    uid = email
+    ```
+
+    If both `name` and `email` are defined, combine both with the email inside angle brackets to form the user ID.
+
+    ```python
+    uid = name + " <" + email + ">"
+    ```
+
+7. Use the master certification key to create a positive self-certification signature on the master key, committing to `uid` and `creation`.
+
+    If `ttl` is defined, use it to define the master key expiry time `creation + ttl`, and commit the self-certification signature to that expiry. This signature should also commit to the symmetric cipher algorithm AES-256, and the hash algorithm SHA-256, as keyholder preferences.
+
+    Refer to [the OpenPGP packet format specification](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-computing-signatures) to see how this signature should be computed.
+
+    Call this `certificationSig`.
+
+8. Use the master certification key to create binding signatures on each subkey, committing to `creation`.
+
+    If `ttl` is defined, commit the binding signatures to `creation + ttl` as the subkey expiry time.
+
+    Refer to [the OpenPGP packet format specification](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-computing-signatures) to see how these signatures should be computed.
+
+    Call these `encryptionBindSig`, `authenticationBindSig`, and `signingBindSig` for the encryption, authentication, and signing subkeys respectively.
+
+9. Serialize and return the following as OpenPGP packets:
     - [Master private key](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-secret-key-packet-formats)
         - If `password` was provided, encrypt the private key using OpenPGP's String-To-Key algorithm.
     - [`uid` (packet type 13)](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-user-id-packet-tag-13)
@@ -179,62 +315,142 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
 
 ## Mnemonic Encoding
 
+There are two flavors of mnemonic encoding: _plaintext_ and _encrypted_.
+
+- Plaintext mnemonic recovery phrases contain everything needed to re-derive PGP keys from scratch - specifically, the plaintext `seed`, the `creationOffset`, and a version number which maps to the `era`. They should be used if highly secure physical storage is available for the paper backup, or if you intend to memorize the resulting phrase.
+- Encrypted mnemonic recovery phrases contain the same plaintext version number and `creationOffset`, but use symmetric AES encryption with a small salt to protect the seed from physical theft. To decrypt the seed, the user must know a password which is defined at backup-creation time. Decryption keys are derived by hashing the password, the salt, and the creation time with Argon2id.
+
+These two formats have slightly different encoding and decoding procedures.
+
 ### Inputs
 
 | Input | Description | Required |
 |:-----:|:-----------:|:--------:|
-|`version`| A 4-bit version number. The current latest version number is `0`. | YES |
-|`seed`| A securely-generated random integer with 128 bits of entropy. | YES |
-|`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **31-bit** integer. | YES |
+|`seed`| A securely-generated random unsigned integer with 128 bits of entropy. | YES |
+|`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **31-bit** unsigned integer. | YES |
+
+For encrypted phrases, the following extra parameters are required:
+
+| Input | Description | Required |
+|:-----:|:-----------:|:--------:|
+|`password`| A user-supplied encryption passphrase. | Only for encrypted phrases |
+|`salt`| A random 19-bit number used to salt the encryption process. | Only for encrypted phrases |
 
 ### Output
 
-An English phrase of 14 words which completely encodes the `version`, `seed`, and `creationOffset`.
+An English phrase of words which completely encodes the `seed`, and `creationOffset`, as well as a version number to tell the decoder how to process the encoded material.
+
+Plaintext phrases will be 14 words long and will contain the plaintext `seed`.
+
+Encrypted phrases will be 16 words long, and the `seed` contained therein will have been encrypted with a key derived from the `password`, `salt`, and `creationOffset`.
 
 ### Procedure
 
-1. Initialize an unsigned integer `backupPayload` starting with the 4-bit `version` number.
-    - `backupPayload = version`
-1. Append the 128-bit integer `seed` to `backupPayload` as the lowest-order bits.
-    - `backupPayload = (backupPayload << 128) | seed`
-1. Append the 31-bit integer `creationOffset` to `backupPayload` as the lowest-order bits.
-    - `backupPayload = (backupPayload << 31) | creationOffset`
-1. Serialize the `backupPayload` (now 163-bits long) as a big-endian byte array with length 21.
-    - Call the result `backupPayloadBytes`
-    - `backupPayloadBytes = backupPayload.to_bytes(21, 'big')`
-    - The payload should be serialized such that the first 5 highest order bits are unused. These bits are always set to zero.
-1. Compute a 5-bit checksum on `backupPayloadBytes` using a cyclic-redundancy-check (CRC).
-    - Use the Checksum Generator Polynomial to generate a 32-bit CRC.
-    - Take the lowest order 5 bits of the CRC output.
-    - `checksum = 0x1F & crc32(backupPayloadBytes)`
-    - Example: The 5-bit checksum of `"hey"` in UTF-8 would be `0x1F & crc32([0x68, 0x65, 0x79]) = 16`
-1. Append `checksum` to the lowest order bits of `backupPayload`.
-    - `backupPayload = (backupPayload << 5) | checksum`
-1. Chunk `backupPayload` into 12-bit symbols, with the highest-order bits as the first chunk.
-    - `[(backupPayload >> (i*12)) & 0xFFF for i in reversed(range(14))]`
-    - Note that the total `backupPayload` bit-length $4 + 128 + 31 + 5 = 168$ is evenly divisible by 12.
-1. Interpret each 12-bit symbol as a big-endian integer, mapping to the word at that index in the mnemonic encoding wordlist.
-1. Return the resulting list of words.
+1. Set the 4-bit `version` number.
+    - For plaintext recovery phrases, `version = uint4(0)`.
+    - For encrypted recovery phrases, `version = uint4(1)`.
 
-To decode a mnemonic phrase into the `version`, `seed`, and `creationOffset`, simply reverse the algorithm. Upon decoding, a Mnemonikey implementation should ensure the checksum is correct and the `version` number is supported.
+> ### If exporting an encrypted mnemonic recovery phrase
+>
+> Derive an encryption key and checksum byte from the `password` using Argon2id.
+>
+> The salt parameter for Argon2id is the 19-bit `salt` input value, with the `creationOffset` appended as the least significant bits. This combined 50-bit integer is then big-endian serialized to 7 bytes and used as the Argon2id salt.
+>
+> ```python
+> encSeedSalt = bytes(salt || creationOffset)
+> ```
+>
+> The remaining Argon2id parameters are `time=4`, `memory=0x80000` (512MB), `threads=2`, and `keyLen=17`.
+>
+> Run Argon2id on these parameters and call the result `encSeedKey`.
+>
+> ```python
+> encSeedKey = argon2id(password, encSeedSalt, time, memory, threads, keyLen)
+> ```
+>
+> Encrypt the big-endian serialization of `seed` with AES-128-ECB using the first 16 bytes of `encSeedKey` as the key. Interpret this encrypted seed as an unsigned integer. Call this `encSeed`.
+>
+> ```python
+> encSeed = uint(aes128ecb(bytes(seed), encSeedKey[:16]))
+> ```
+>
+> Extract the least significant 5 bits of `encSeedKey[16]`. These trailing bits of `encSeedKey` will be used as a checksum to later provide an accuracy-check on the password upon decryption. Call this `encSeedVerify`.
+>
+> ```python
+> encSeedVerify = uint5(encSeedKey[16] & 0x1F)
+> ```
+>
+> For the remainder of the process, use the concatenation of `encSeed`, `salt`, and `encSeedVerify` in place of the plaintext `seed`:
+>
+> ```python
+> seed = encSeed || salt || encSeedVerify
+> ```
+
+2. Construct the base payload by bitwise-concatenating the `version`, `seed`, and `creationOffset`.
+
+    ```python
+    payload = version || seed || creationOffset
+    ```
+
+    `payload` will thus be a 163 bit integer if `seed` is plaintext, or 187 bits if `seed` is encrypted. The most significant bits of `payload` will be the most significant bits of the version number. The least significant bits of `payload` will be the least significant bits of the `creationOffset`.
+
+3. Encode this payload into a byte array. This byte array will have length 21 if the `seed` is plaintext, or length 24 if the `seed` is encrypted.
+
+    ```python
+    payloadBytes = bytes(payload)
+    ```
+
+    **The most significant 5 bits of `payloadBytes` will always be zero, owing to the fixed sizes of the integers involved.**
+
+4. Compute a 5-bit checksum on `payloadBytes` using a cyclic-redundancy-check (CRC), using the 32-bit Checksum Generator Polynomial. Use only the 5 least significant bits of the CRC output.
+
+```python
+checksum = 0x1F & crc32(payloadBytes)
+```
+
+> Example: The 5-bit checksum of the string `"hey"` in UTF-8 would be `0x1F & crc32([0x68, 0x65, 0x79]) = 16`
+
+5. Append the checksum to the payload.
+
+    ```python
+    payload = payload || checksum
+    ```
+
+    Note that in either plaintext or encrypted cases, the bit-length of `payload` will now be evenly divisible by 12.
+
+6. Chunk `payload` into 12-bit unsigned integers, with the most significant bits as the first chunk. This will result in an array of 14 integers for plaintext recovery phrases, or an array of 16 integers for encrypted phrases.
+
+    ```python
+    nWords = 14 if version == 0 else 16
+    indices = [(backupPayload >> (i*12)) & 0xFFF for i in reversed(range(nWords))]
+    ```
+
+7. Interpret each 12-bit integer as an index mapping to the word at that index in the [4096-word long mnemonic encoding wordlist](https://github.com/kklash/wordlist4096).
+
+    ```python
+    words = [wordlist[n] for n in indices]
+    ```
+
+8. Return the resulting list of words.
+
+
+### Decoding
+
+To decode a mnemonic phrase into the `version`, `seed`, and `creationOffset`, simply reverse the encoding algorithm. Upon decoding, a Mnemonikey implementation should ensure:
+
+- No words are accepted unless present in the wordlist
+- The checksum is correct
+- The `version` number is supported
+- The word count is appropriate for the version number embedded in the first word.
+
+If a decoder detects an encrypted phrase:
+
+- Decoders should check that the password given by the user hashes to produce an encryption key which shares the same 5 `encSeedVerify` checksum bits.
+- Decoders may end up accepting invalid passwords with a $\frac{1}{2^5}$ probability, due to the limited 5-bit size of the `encSeedVerify` checksum bits.
 
 # Design Motivation :brain:
 
 In this section, we elaborate on the motivation behind the different design choices implied by the above specification.
-
-## Background
-
-Normally, PGP key backups must be done manually by backing up private key export files, but files can be easily lost, corrupted, or deleted accidentally. Whenever new subkeys are added to the master key, the backup must be updated manually. This is a risky and error-prone practice, as I have personally discovered several times.
-
-The [`paperkey`](https://www.jabberwocky.com/software/paperkey/) backup tool is also similarly fragile, as it involves either copying by-hand a large blob of hexadecimal numbers, or printing `paperkey`'s output to paper. Copying by-hand risks errors in duplication, and printing risks exposure of your private key material to a printer, which are not known for prioritizing security in their design: Many printers run outdated firmware, are wide-open by default on wireless networks, and [may cache plaintext copies of the documents they've printed, in memory or on-disk](https://www.cbsnews.com/news/digital-photocopiers-loaded-with-secrets/).
-
-Many early users of [Bitcoin](https://bitcoin.org) also learned this lesson in a different context. In 2013, [mnemonic recovery phrases were invented to resolve it](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). They eventually became the norm for Bitcoin wallet backups.
-
-|Bitcoin Recovery Phrase|`paperkey` Output|
-|:-:|:-:|
-|<img src="https://user-images.githubusercontent.com/31221309/204943520-481fb5a0-36fe-4329-ac12-dd271b8375aa.jpg">|<img src="https://user-images.githubusercontent.com/31221309/204945149-cce0de55-9a03-4d28-9839-32946be90d9e.png">|
-
-<sub>On the left, a 12-word Bitcoin BIP39 recovery phrase written on paper. On the right, the output of [`paperkey`](https://www.jabberwocky.com/software/paperkey/). Which would you rather use to recover the root of your digital identity?</sub>
 
 ## Mission
 
@@ -376,57 +592,160 @@ Since the seed only bears 128 bits of entropy, and ED25519 private keys are 256-
 
 To derive a full set of four OpenPGP keys - the master certification key and the signing/encryption/authentication subkeys - we need a total of $256 \cdot 4 = 1024$ bits of secure key material. For this we use the [HMAC-based Key Derivation Function (HKDF)](https://www.rfc-editor.org/rfc/rfc5869) Expand function to expand the uniformly random _root key_ into four 256-bit private keys. Each key including the master certification key is derived flatly from the _root key,_ without any hierarchy.
 
+### Encrypted Phrases
+
+Encrypted phrases offer additional protection from accidental exposure or theft of a recovery phrase.
+
+We could have chosen to follow the classic BIP39 mechanism of password-derived keys, where keys would be derived by hashing a user-specified password with the seed entropy. In this paradigm, a 'plaintext' phrase would be a recovery phrase plus an empty password. Using any other password would derive a completely different PGP key set. This allows one recovery phrase to be used to derive multiple PGP key sets, by using multiple unique derivation passwords. Each particular output PGP key set would be _tightly bound_ to the password and seed entropy which derived it.
+
+This approach has some flaws. Notably, it doesn't work very well for our specific domain of PGP keys. Unlike with Bitcoin wallets, most people only ever need one PGP master key. Having the ability to derive more PGP master keys by changing the derivation password can actually be counterintuitive. Most people are used to password-based logins, which either succeed or fail. In a BIP39-like derivation scheme, any password is allowed, and the user would have to check the output PGP key fingerprint to ensure they used the correct password and derived the expected keys. Having worked on a cryptocurrency wallet myself in the past, I am intimately familiar with the confusion this causes for non-expert users.
+
+Furthermore, a BIP39-like derivation scheme doesn't allow _changing passwords,_ and is not cross-compatible with plaintext backups. If you create a PGP key set which is derived from a specific seed and password, the keys _can only ever be recovered with that same seed and password._ If you ever want to change the password - or remove it entirely - you're out of luck and would have to take enormous effort to swap your whole digital identity to a whole new PGP key derived from your _new_ password.
+
+Rather than binding a password tightly to the PGP key, _encrypted phrases_ on the other hand, are more like a layer of protection _on top_ of a plaintext recovery phrase. With encrypted phrases, a user can decide at any point to re-export their recovery phrase with a new password. They can update their paper backups to use this new phrase encrypted with the new password, but keep the same resulting PGP key set. Similarly, someone with a plaintext recovery phrase could at any point choose to update their recovery phrase with password-protection (and vice-versa).
+
+Using encrypted phrases does have a small drawback: We must now include a `salt` value in the backup payload, to ensure the same password does not always hash to the same encryption key, thus reducing the feasibility of pre-computation attacks. This increases the size of the recovery phrase, but the additional flexibility is well worth it.
+
+We also further salt the password hash with the key creation time, to further distinguish the seed encryption keys of different users.
+
+**The encryption on a recovery phrase is not meant to protect a publicly available phrase for a long period of time, but to protect a physically secure phrase for a short period of time.** It is suitable only to give a victim enough time to revoke her exposed PGP key before an attacker can brute-force the password. It is *not* intended to protect the seed while it is exposed publicly on some insecure platform for long stretches of time - e.g. stored in Google Docs or DropBox. To achieve security in that scenario, a suitably (read: ridiculously) strong password with at least 128 bits of entropy should be used.
+
+19 bits of salt was determined to be the best trade-off between brevity and security. A shorter salt is acceptable. Most likely, if your recovery phrase is exposed, you will probably know about it. E.g. [your safety deposit box was broken into](https://www.latimes.com/california/story/2021-06-09/fbi-beverly-hills-safe-deposit-boxes-forfeiture-cash-jewelry), or [someone accidentally published a picture of your recovery phrase online](https://twitter.com/lopp/status/1604599964713328640)). It will presumably be rare and challenging for an adversary to acquire your encrypted recovery phrase. This contrasts with salted password hashes, which are commonly stored in bulk on networked cloud databases, and are frequently leaked. As such the size of the salt is less critical.
+
+To give the decoder some indication of whether the password was correct or not, we also want some kind of checksum on the decrypted seed or on the encryption key.
+
+Using an _actual checksum_ - like CRC-32, which we use for the mnemonic phrase - might leak data about the seed or its encryption key. Instead we simply derive one extra byte from Argon2id when hashing the user's password, and use a few bits from that as the checksum. This way, the checksum is still derived from the password and salt, but doesn't leak any information about the seed, nor about the key used to decrypt the seed.
+
 ## Encoding
 
-Each word in a recovery phrase is one of 4096 ( $2^{12}$ ) different words, and thus encodes 12 bits of information. To encode a recovery phrase, we need to store both the entropy (128 bits) and the key creation time offset from the epoch (31 bits). $128 + 31 = 159$ and $\frac{159}{12} = 13\frac{3}{12}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 14 words, leaving 9 unused bits.
+Each word in a recovery phrase is one of 4096 ( $2^{12}$ ) different words, and thus encodes 12 bits of information. To encode a plaintext recovery phrase, at minimum we need to store both the entropy (128 bits) and the key creation time offset from the epoch (31 bits).
 
-These last 9 bits can be used for a **4-bit version number** and **5-bit checksum**.
+$128 + 31 = 159$ and $\frac{159}{12} = 13\frac{3}{12}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 14 words, leaving 9 unused bits. These last 9 bits can be used for a **4-bit version number** and **5-bit checksum**.
 
-This diagram demonstrates the **bit-level layout** of each word in the mnemonic, and how it encodes the backup payload and checksum. Each number from `0` to `b` (11) is an index of each of the 12 bits encoded by a word in the mnemonic.
+For encrypted recovery phrases, we must also encode a `salt` value and a small checksum (`encSeedVerify`) in addition to the other fields. If we allot the same 5-bit checksum size for `encSeedVerify` as for the phrase checksum itself, we can now choose for `salt` a bit-size which is some multiple of $12n + 7$. So we could choose 7 bits, 19 bits, 31 bits, etc. For a balance of security and brevity, we selected 19 bits.
+
+This diagram demonstrates the **bit-level layout** of each word in a plaintext mnemonic recovery phrase, and how it encodes the backup payload and checksum. Each number from `0` to `b` (11) is an index of each of the 12 bits encoded by a word in the mnemonic.
 
 ```
-|version|--------------------------- entropy ----------------------------
-|------- word 0 --------|------- word 1 --------|------- word 2 --------|
- 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b
+|-- version --|------------------------------------ seed -------------------------------------
+|------------------ word 0 -------------------|------------------- word 1 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
 
 
--------------------------------- entropy --------------------------------
-|------- word 3 --------|------- word 4 --------|------- word 5 --------|
- 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 2 -------------------|------------------- word 3 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
 
 
--------------------------------- entropy --------------------------------
-|------- word 6 --------|------- word 7 --------|------- word 8 --------|
- 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 4 -------------------|------------------- word 5 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
 
 
-------------------- entropy --------------------|-- creation timestamp --
-|------- word 9 --------|------- word 10 -------|------- word 11 -------|
- 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 6 -------------------|------------------- word 7 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
 
 
-            -------- creation timestamp ----------|check sum|
-            |------- word 12 -------|------- word 13 -------|
-             0 1 2 3 4 5 6 7 8 9 a b 0 1 2 3 4 5 6 7 8 9 a b
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 8 -------------------|------------------- word 9 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+-------------------- seed --------------------|--------------- creationOffset ----------------
+|------------------ word 10 ------------------|------------------- word 11 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+----------------------------- creationOffset -----------------------------|---- checksum ----|
+|------------------ word 12 ------------------|------------------- word 13 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
 ```
 
 |Field|Size|
-|-----|----|
-|Version Number|4 bits|
-|Entropy|128 bits|
-|Creation Offset|31 bits|
-|Checksum|5 bits|
+|:-:|:-:|
+|`version`|4 bits|
+|`seed`|128 bits|
+|`creationOffset`|31 bits|
+|`checksum`|5 bits|
 |---|---|
-|Total|168 Bits|
-|Words Needed|$\frac{168}{12}=14$|
+|**Total**|168 bits|
+|**Words Needed**|$\frac{168}{12}=14$|
+
+This is an equivalent diagram and table showing the encoding layout of an encrypted phrase.
+
+```
+|-- version --|----------------------------------- encSeed -----------------------------------
+|------------------ word 0 -------------------|------------------- word 1 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 2 -------------------|------------------- word 3 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 4 -------------------|------------------- word 5 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 6 -------------------|------------------- word 7 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 8 -------------------|------------------- word 9 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------- encSeed ------------------|-------------------- salt ---------------------
+|------------------ word 10 ------------------|------------------- word 11 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+---------- salt ----------|-- encSeedVerify --|--------------- creationOffset ----------------
+|------------------ word 12 ------------------|------------------- word 13 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+---------------------------- creationOffset ------------------------------|---- checksum ----|
+|------------------ word 12 ------------------|------------------- word 13 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+```
+
+|Field|Size|
+|:-:|:-:|
+|`version`|4 bits|
+|`encSeed`|128 bits|
+|`salt`|19 bits|
+|`encSeedVerify`|5 bits|
+|`creationOffset`|31 bits|
+|`checksum`|5 bits|
+|---|---|
+|**Total**|192 bits|
+|**Words Needed**|$\frac{192}{12}=16$|
+
 
 ## Wordlist
 
 To read more about the wordlist used to encode the Mnemonikey recovery phrases, [check out the separate `wordlist4096` repository](https://github.com/kklash/wordlist4096).
 
-## Version Number
+## Version Numbers
 
-The version number tells Mnemonikey implementations how to decode the recovery phrase and derive the PGP keys from the backup payload. The version number may be incremented in the future, for example to fix a critical bug, support post-quantum key algorithms, or define a new key creation time epoch.
+The version numbers embedded in mnemonic recovery phrases tell Mnemonikey implementations how to decode a recovery phrase and derive the PGP keys from the backup payload. The version number may be incremented in the future - for example, to fix a critical bug, support post-quantum key algorithms, or define a new key creation time epoch.
+
+The `era` number is distinct from the mnemonic `version` number.
+
+- Era numbers describe _how to derive PGP keys from a seed and creation time._
+- Version numbers describe _how to decode a recovery phrase into a seed and creation time._
+
+Version numbers map many-to-one into era numbers, so that a decoder can know which procedure to use to recover a PGP key set after decoding.
+
+Version numbers within an Era are cross-compatible: You can convert between recovery phrases in the same era without losing compatibility or changing the resulting PGP key set derived from the seed.
+
+Era numbers are not cross-compatible. If we change the procedure for recovering a PGP key set, this will fundamentally change the resulting PGP key set that we derive.
 
 ## Checksum
 
