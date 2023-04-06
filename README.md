@@ -405,10 +405,10 @@ Encrypted phrases will be 16 words long, and the `seed` contained therein will h
 4. Compute a 5-bit checksum on `payloadBytes` using a cyclic-redundancy-check (CRC), using the 32-bit Checksum Generator Polynomial. Use only the 5 least significant bits of the CRC output.
 
 ```python
-checksum = 0x1F & crc32(payloadBytes)
+checksum = uint5(crc32(payloadBytes) & 0x1F)
 ```
 
-> Example: The 5-bit checksum of the string `"hey"` in UTF-8 would be `0x1F & crc32([0x68, 0x65, 0x79]) = 16`
+> Example: The 5-bit checksum of the string `"hey"` in UTF-8 would be `crc32([0x68, 0x65, 0x79]) & 0x1F = 16`
 
 5. Append the checksum to the payload.
 
@@ -422,7 +422,7 @@ checksum = 0x1F & crc32(payloadBytes)
 
     ```python
     nWords = 14 if version == 0 else 16
-    indices = [(backupPayload >> (i*12)) & 0xFFF for i in reversed(range(nWords))]
+    indices = [uint12((backupPayload >> (i*12)) & 0xFFF) for i in reversed(range(nWords))]
     ```
 
 7. Interpret each 12-bit integer as an index mapping to the word at that index in the [4096-word long mnemonic encoding wordlist](https://github.com/kklash/wordlist4096).
