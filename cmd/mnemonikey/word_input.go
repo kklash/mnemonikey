@@ -26,15 +26,16 @@ func eprintf(str string, values ...any) { fmt.Fprintf(os.Stderr, str, values...)
 func eprintln(values ...any)            { fmt.Fprintln(os.Stderr, values...) }
 
 // userInputMnemonic accepts raw input from the user's terminal
-// to get a mnemonic phrase of the given word count.
+// to get a mnemonic phrase. Dynamically decides how many words
+// to accept based on the version embedded in the first word.
 //
 // Only returns words in the wordlist.
-func userInputMnemonic(wordCount uint) ([]string, error) {
+func userInputMnemonic() ([]string, error) {
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		eprintf("WARN: failed to hook into terminal interface: %s\n", err)
 		eprintf("WARN: reverting to backup input method\n")
-		return userInputMnemonicSimple(wordCount)
+		return userInputMnemonicSimple()
 	}
 	defer func() {
 		// Clear any sensitive mnemonic input on the current line from the terminal
@@ -44,7 +45,9 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 		term.Restore(int(os.Stdin.Fd()), oldState)
 	}()
 
-	words := make([]string, wordCount)
+	wordCount := 1
+
+	words := []string{}
 
 	eprint(bold(cyan(inputHeaderMessage + "\r\n")))
 	eprint("\r\n")
@@ -58,7 +61,7 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 	// Establish vertical space early to allow room for printing error messages
 	eprint("\n" + previousLine)
 
-	for i := uint(0); i < wordCount; {
+	for i := 0; i < wordCount; {
 		eprint("\r" + eraseLineForward + bold(cyan(fmt.Sprintf("Word %d >> ", i+1))))
 
 		wordInput := ""
@@ -117,13 +120,18 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 
 				// Confirm the mnemonic's version is supported
 				if i == 0 {
-					if _, err := mnemonikey.ParseVersion(completedWord); err != nil {
+					version, err := mnemonikey.ParseMnemonicVersion(completedWord)
+					if err != nil {
 						eprint("\r\n" + red(err.Error()) + loadCursor)
 						continue
 					}
+
+					// Dynamically adjust the number of expected words based on the version embedded
+					// in the first word.
+					wordCount = version.MnemonicSize()
 				}
 
-				words[i] = completedWord
+				words = append(words, completedWord)
 				i += 1
 				break
 			}
@@ -160,16 +168,18 @@ func userInputMnemonic(wordCount uint) ([]string, error) {
 // manipulation in userInputMnemonic doesn't work for some people.
 //
 // Only returns words in the wordlist.
-func userInputMnemonicSimple(wordCount uint) ([]string, error) {
-	words := make([]string, wordCount)
+func userInputMnemonicSimple() ([]string, error) {
+	words := []string{}
 	scanner := bufio.NewScanner(os.Stdin)
+
+	wordCount := 1
 
 	eprint(bold(cyan(inputHeaderMessage + "\n\n")))
 
 	// Establish vertical space early to allow room for printing error messages
 	eprint("\n" + previousLine)
 
-	for i := uint(0); i < wordCount; {
+	for i := 0; i < wordCount; {
 		eprint(bold(cyan(fmt.Sprintf("Word %d >> ", i+1))))
 
 		if !scanner.Scan() {
@@ -186,13 +196,18 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 			eprint(eraseLineForward)
 
 			if i == 0 {
-				if _, err := mnemonikey.ParseVersion(wordInput); err != nil {
+				version, err := mnemonikey.ParseMnemonicVersion(wordInput)
+				if err != nil {
 					eprint(red(err.Error()))
 					goto next_word
 				}
+
+				// Dynamically adjust the number of expected words based on the version embedded
+				// in the first word.
+				wordCount = version.MnemonicSize()
 			}
 
-			words[i] = wordInput
+			words = append(words, wordInput)
 			i += 1
 		} else {
 			// No match, print an error message
@@ -209,8 +224,12 @@ func userInputMnemonicSimple(wordCount uint) ([]string, error) {
 
 var errPasswordConfirmationFailed = errors.New("Passwords do not match. Please try again.")
 
-// userInputPassword accepts a password input from the user's terminal.
-func userInputPassword() ([]byte, error) {
+// userInputPassword accepts a password input from the user's terminal, printing the
+// given prompt before accepting input.
+//
+// If the confirm flag is given, the user will be prompted twice for the same password,
+// and an error will be returned if the two passwords do not match.
+func userInputPassword(prompt string, confirm bool) ([]byte, error) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
@@ -229,23 +248,26 @@ func userInputPassword() ([]byte, error) {
 	errChan := make(chan error, 1)
 
 	go func() {
-		eprint(faint("Enter key encryption password: "))
+		eprint(faint(prompt))
 		pass1, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			errChan <- fmt.Errorf("failed to read password: %w", err)
 			return
 		}
 
-		eprint(faint("\nConfirm key encryption password: "))
-		pass2, err := term.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			errChan <- fmt.Errorf("failed to confirm password: %w", err)
-			return
+		if confirm {
+			eprint(faint("\nEnter again password: "))
+			pass2, err := term.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				errChan <- fmt.Errorf("failed to confirm password: %w", err)
+				return
+			}
+			if !bytes.Equal(pass1, pass2) {
+				errChan <- errPasswordConfirmationFailed
+				return
+			}
 		}
-		if !bytes.Equal(pass1, pass2) {
-			errChan <- errPasswordConfirmationFailed
-			return
-		}
+
 		passChan <- pass1
 	}()
 
@@ -257,7 +279,7 @@ func userInputPassword() ([]byte, error) {
 		eprintln()
 		if errors.Is(err, errPasswordConfirmationFailed) {
 			eprintln(red(err.Error()))
-			return userInputPassword()
+			return userInputPassword(prompt, confirm)
 		}
 		return nil, err
 

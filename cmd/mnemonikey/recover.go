@@ -125,22 +125,41 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	if opts.WordFile != "" {
 		words, err = readWordFile(opts.WordFile)
 	} else if opts.SimpleInput {
-		words, err = userInputMnemonicSimple(mnemonikey.MnemonicSize)
+		words, err = userInputMnemonicSimple()
 	} else {
-		words, err = userInputMnemonic(mnemonikey.MnemonicSize)
+		words, err = userInputMnemonic()
 	}
 	if err != nil {
 		return err
 	}
 
-	mnk, err := mnemonikey.Recover(words, keyOptions)
+	decodedMnemonic, err := mnemonikey.DecodeMnemonic(words)
+	if err != nil {
+		return err
+	}
+
+	var phrasePassword []byte
+	if decodedMnemonic.Encrypted() {
+		phrasePassword, err = userInputPassword("Enter phrase decryption password: ", false)
+		if err != nil {
+			return err
+		}
+	}
+
+	// If the phrase is not encrypted, this will still return the correct seed.
+	seed, err := decodedMnemonic.DecryptSeed(phrasePassword)
+	if err != nil {
+		return err
+	}
+
+	mnk, err := mnemonikey.New(seed, decodedMnemonic.Creation(), keyOptions)
 	if err != nil {
 		return fmt.Errorf("failed to re-derive PGP keys: %w", err)
 	}
 
 	var password []byte
-	if opts.Common.Encrypt {
-		password, err = userInputPassword()
+	if opts.Common.EncryptKeys {
+		password, err = userInputPassword("Enter key encryption password: ", true)
 		if err != nil {
 			return err
 		}
@@ -177,16 +196,28 @@ func readWordFile(fpath string) ([]string, error) {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanWords)
-	words := make([]string, 0, mnemonikey.MnemonicSize)
+	words := []string{}
 	for scanner.Scan() {
 		word := strings.ToLower(scanner.Text())
 		if _, ok := wordlist4096.WordMap[word]; !ok {
 			return nil, fmt.Errorf("found word in %s not present in wordlist", fpath)
 		}
 		words = append(words, word)
+
+		if len(words) > 100 {
+			return nil, fmt.Errorf("invalid format for word file")
+		}
 	}
-	if len(words) != int(mnemonikey.MnemonicSize) {
-		return nil, fmt.Errorf("found only %d words in word file %s", len(words), fpath)
+	if len(words) == 0 {
+		return nil, fmt.Errorf("found only no words in word file %s", fpath)
+	}
+
+	version, err := mnemonikey.ParseMnemonicVersion(words[0])
+	if len(words) != version.MnemonicSize() {
+		return nil, fmt.Errorf(
+			"found only %d words in word file %s, expected %d words for version %d phrase",
+			len(words), fpath, version.MnemonicSize(), version,
+		)
 	}
 	return words, nil
 }
