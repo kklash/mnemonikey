@@ -239,7 +239,7 @@ func TestMnemonikey(t *testing.T) {
 		}
 	})
 
-	t.Run("checksum in recovery phrase detects errors", func(t *testing.T) {
+	t.Run("checksum in recovery phrase detects wrong words", func(t *testing.T) {
 		words, err := mnk.EncodeMnemonicPlaintext()
 		if err != nil {
 			t.Fatalf("failed to encode key as plaintext mnemonic: %s", err)
@@ -250,6 +250,17 @@ func TestMnemonikey(t *testing.T) {
 
 		if _, err := RecoverPlaintext(wordsBad, keyOpts); !errors.Is(err, ErrInvalidChecksum) {
 			t.Fatalf("expected to get ErrInvalidChecksum when mnemonic was corrupted, got: %s", err)
+		}
+	})
+
+	t.Run("checksum in recovery phrase detects wrong password", func(t *testing.T) {
+		words, err := mnk.EncodeMnemonicEncrypted([]byte("password123"), rand.Reader)
+		if err != nil {
+			t.Fatalf("failed to encode key as plaintext mnemonic: %s", err)
+		}
+
+		if _, err := RecoverEncrypted(words, []byte("wrongpass"), keyOpts); !errors.Is(err, ErrMnemonicDecryption) {
+			t.Fatalf("expected to get ErrMnemonicDecryption when password was wrong, got: %s", err)
 		}
 	})
 }
