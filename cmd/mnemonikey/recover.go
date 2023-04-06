@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -138,18 +139,25 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return err
 	}
 
-	var phrasePassword []byte
-	if decodedMnemonic.Encrypted() {
-		phrasePassword, err = userInputPassword("Enter phrase decryption password: ", false)
-		if err != nil {
+	var seed *mnemonikey.Seed
+	for {
+		var phrasePassword []byte
+		if decodedMnemonic.Encrypted() {
+			phrasePassword, err = userInputPassword("Enter phrase decryption password: ", false)
+			if err != nil {
+				return err
+			}
+		}
+
+		// If the phrase is not encrypted, this will still return the correct seed.
+		seed, err = decodedMnemonic.DecryptSeed(phrasePassword)
+		if errors.Is(err, mnemonikey.ErrMnemonicDecryption) {
+			eprintln(red(err.Error()))
+			continue
+		} else if err != nil {
 			return err
 		}
-	}
-
-	// If the phrase is not encrypted, this will still return the correct seed.
-	seed, err := decodedMnemonic.DecryptSeed(phrasePassword)
-	if err != nil {
-		return err
+		break
 	}
 
 	mnk, err := mnemonikey.New(seed, decodedMnemonic.Creation(), keyOptions)

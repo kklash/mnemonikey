@@ -222,8 +222,6 @@ func userInputMnemonicSimple() ([]string, error) {
 	return words, nil
 }
 
-var errPasswordConfirmationFailed = errors.New("Passwords do not match. Please try again.")
-
 // userInputPassword accepts a password input from the user's terminal, printing the
 // given prompt before accepting input.
 //
@@ -248,27 +246,35 @@ func userInputPassword(prompt string, confirm bool) ([]byte, error) {
 	errChan := make(chan error, 1)
 
 	go func() {
-		eprint(faint(prompt))
-		pass1, err := term.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			errChan <- fmt.Errorf("failed to read password: %w", err)
+		for {
+			eprint(faint(prompt))
+			pass1, err := term.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				errChan <- fmt.Errorf("failed to read password: %w", err)
+				return
+			}
+
+			if len(pass1) == 0 {
+				eprintln(red("\nCannot use an empty password."))
+				continue
+			}
+
+			if confirm {
+				eprint(faint("\nEnter again password: "))
+				pass2, err := term.ReadPassword(int(os.Stdin.Fd()))
+				if err != nil {
+					errChan <- fmt.Errorf("failed to confirm password: %w", err)
+					return
+				}
+				if !bytes.Equal(pass1, pass2) {
+					eprintln(red("\nPasswords do not match. Please try again."))
+					continue
+				}
+			}
+
+			passChan <- pass1
 			return
 		}
-
-		if confirm {
-			eprint(faint("\nEnter again password: "))
-			pass2, err := term.ReadPassword(int(os.Stdin.Fd()))
-			if err != nil {
-				errChan <- fmt.Errorf("failed to confirm password: %w", err)
-				return
-			}
-			if !bytes.Equal(pass1, pass2) {
-				errChan <- errPasswordConfirmationFailed
-				return
-			}
-		}
-
-		passChan <- pass1
 	}()
 
 	select {
@@ -277,16 +283,9 @@ func userInputPassword(prompt string, confirm bool) ([]byte, error) {
 
 	case err := <-errChan:
 		eprintln()
-		if errors.Is(err, errPasswordConfirmationFailed) {
-			eprintln(red(err.Error()))
-			return userInputPassword(prompt, confirm)
-		}
 		return nil, err
 
 	case pass := <-passChan:
-		if len(pass) == 0 {
-			return nil, fmt.Errorf("cannot encrypt keys with an empty password")
-		}
 		return pass, nil
 	}
 }
