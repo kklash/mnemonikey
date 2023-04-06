@@ -21,7 +21,7 @@ const (
 )
 
 // keyExpandInfoMaster is the string used as the 'info' parameter to the
-// HDKF-Expand function when deriving a PGP master key from a root key.
+// HKDF-Expand function when deriving a PGP master key from a root key.
 const keyExpandInfoMaster = "mnemonikey master key"
 
 // keyExpandInfoSubkey builds the HKDF-Expand function's "info" parameter, used
