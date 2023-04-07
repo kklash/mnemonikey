@@ -29,8 +29,7 @@ func shouldPanicWith(t *testing.T, expectedPanicString string, fn func()) {
 
 func TestBitBuffer(t *testing.T) {
 	t.Run("popping trailing bits", func(t *testing.T) {
-		n := uint64(0b0000_1111_0000_1111_0101)
-		bb := newBitBuffer(big.NewInt(int64(n)), 20)
+		bb := newBitBuffer(big.NewInt(0b0000_1111_0000_1111_0101), 20)
 
 		actual := bb.PopTrailingBits(4).Uint64()
 		expected := uint64(0b0101)
@@ -56,8 +55,7 @@ func TestBitBuffer(t *testing.T) {
 	})
 
 	t.Run("popping leading bits", func(t *testing.T) {
-		n := uint64(0b0000_1111_0000_1111_0101)
-		bb := newBitBuffer(big.NewInt(int64(n)), 20)
+		bb := newBitBuffer(big.NewInt(0b0000_1111_0000_1111_0101), 20)
 
 		actual := bb.PopLeadingBits(4).Uint64()
 		expected := uint64(0b0000)
@@ -83,8 +81,7 @@ func TestBitBuffer(t *testing.T) {
 	})
 
 	t.Run("popping leading and trailing bits", func(t *testing.T) {
-		n := uint64(0b0001_1001_0110_0101_1001)
-		bb := newBitBuffer(big.NewInt(int64(n)), 20)
+		bb := newBitBuffer(big.NewInt(0b0001_1001_0110_0101_1001), 20)
 
 		actual := bb.PopLeadingBits(8).Uint64()
 		expected := uint64(0b0001_1001)
