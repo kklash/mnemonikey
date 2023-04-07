@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/kklash/mnemonikey"
@@ -137,6 +138,16 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	decodedMnemonic, err := mnemonikey.DecodeMnemonic(words)
 	if err != nil {
 		return err
+	}
+
+	if opts.Common.Verbose {
+		eprintln("Decoded mnemonic recovery phrase:")
+		printDebugInfo(os.Stderr, [][2]string{
+			{"version", strconv.Itoa(int(decodedMnemonic.Version))},
+			{"era", strconv.Itoa(int(decodedMnemonic.Version.Era()))},
+			{"encrypted", fmt.Sprint(decodedMnemonic.Encrypted())},
+		})
+		eprintln()
 	}
 
 	var seed *mnemonikey.Seed
