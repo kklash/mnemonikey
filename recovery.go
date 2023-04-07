@@ -246,6 +246,9 @@ func DecodeMnemonic(words []string) (*DecodedMnemonic, error) {
 // This can be used to inform a user ahead of time if the user's mnemonic recovery phrase is
 // not supported by this version of the Mnemonikey library, thus saving them from entering
 // the whole phrase in needlessly.
+//
+// The returned MnemonicVersion can be used to dynamically determine how many words long the
+// whole recovery phrase should be, and to determine if the phrase is encrypted or not.
 func ParseMnemonicVersion(firstWord string) (version MnemonicVersion, err error) {
 	index, ok := wordlist4096.WordMap[strings.ToLower(firstWord)]
 	if !ok {
