@@ -124,11 +124,14 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 			return err
 		}
 		recoveryMnemonic, err = mnk.EncodeMnemonicEncrypted(phraseEncryptionPassword, rand.Reader)
+		if err != nil {
+			return err
+		}
 	} else {
 		recoveryMnemonic, err = mnk.EncodeMnemonicPlaintext()
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	if opts.WordFile != "" {
