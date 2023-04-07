@@ -260,7 +260,7 @@ func userInputPassword(prompt string, confirm bool) ([]byte, error) {
 			}
 
 			if confirm {
-				eprint(faint("\nEnter again password: "))
+				eprint(faint("\nRepeat password to confirm: "))
 				pass2, err := term.ReadPassword(int(os.Stdin.Fd()))
 				if err != nil {
 					errChan <- fmt.Errorf("failed to confirm password: %w", err)
