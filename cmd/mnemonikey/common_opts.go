@@ -13,7 +13,7 @@ type GenerateRecoverOptions struct {
 	Name         string
 	Email        string
 	TTL          string
-	Encrypt      bool
+	EncryptKeys  bool
 	OnlyKeyTypes string
 	Verbose      bool
 }
@@ -44,8 +44,8 @@ func (opts *GenerateRecoverOptions) AddFlags(flags *flag.FlagSet) {
 	)
 
 	flags.BoolVar(
-		&opts.Encrypt,
-		"encrypt",
+		&opts.EncryptKeys,
+		"encrypt-keys",
 		false,
 		"Encrypt the derived PGP private keys with a password when exporting them.",
 	)

@@ -17,8 +17,9 @@ import (
 var DefaultName = "anonymous"
 
 type GenerateOptions struct {
-	Common   GenerateRecoverOptions
-	WordFile string
+	Common        GenerateRecoverOptions
+	WordFile      string
+	EncryptPhrase bool
 }
 
 var GenerateCommand = &Command[GenerateOptions]{
@@ -43,6 +44,15 @@ var GenerateCommand = &Command[GenerateOptions]{
 				"Do not use this if you care about keeping your keys safe. Words will be separated by a "+
 				"single space. The file will contain the exact words and nothing else.",
 		)
+
+		flags.BoolVar(
+			&opts.EncryptPhrase,
+			"encrypt-phrase",
+			false,
+			"Encrypt the exported recovery phrase with a password. The resulting phrase will "+
+				"require the same password for later recovery.",
+		)
+
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {
 		return generateAndPrintKey(opts)
@@ -89,9 +99,9 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		return err
 	}
 
-	var password []byte
-	if opts.Common.Encrypt {
-		password, err = userInputPassword()
+	var pgpEncryptionPassword []byte
+	if opts.Common.EncryptKeys {
+		pgpEncryptionPassword, err = userInputPassword("Enter key encryption password: ", true)
 		if err != nil {
 			return err
 		}
@@ -99,17 +109,29 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 
 	var pgpArmorKey string
 	if outputMasterKey {
-		pgpArmorKey, err = mnk.EncodePGPArmor(password)
+		pgpArmorKey, err = mnk.EncodePGPArmor(pgpEncryptionPassword)
 	} else {
-		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(password, true)
+		pgpArmorKey, err = mnk.EncodeSubkeysPGPArmor(pgpEncryptionPassword, true)
 	}
 	if err != nil {
 		return err
 	}
 
-	recoveryMnemonic, err := mnk.EncodeMnemonic()
-	if err != nil {
-		return err
+	var recoveryMnemonic []string
+	if opts.EncryptPhrase {
+		phraseEncryptionPassword, err := userInputPassword("Enter phrase encryption password: ", true)
+		if err != nil {
+			return err
+		}
+		recoveryMnemonic, err = mnk.EncodeMnemonicEncrypted(phraseEncryptionPassword, rand.Reader)
+		if err != nil {
+			return err
+		}
+	} else {
+		recoveryMnemonic, err = mnk.EncodeMnemonicPlaintext()
+		if err != nil {
+			return err
+		}
 	}
 
 	if opts.WordFile != "" {

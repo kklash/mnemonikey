@@ -1,8 +1,6 @@
 package mnemonikey
 
 import (
-	"bytes"
-	"math/big"
 	"time"
 )
 
@@ -17,14 +15,18 @@ const EpochIncrement = time.Second
 // In unix time, this epoch is exactly 1672531200 seconds after the unix epoch.
 var EpochStart = time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 
-// checksumTable is the precomputed table used to create checksums of backup payloads.
 const (
-	// VersionLatest is the latest known mnemonikey version number. Backups encoded with versions higher
+	// MnemonicVersionLatest is the latest known mnemonikey version number. Backups encoded with versions higher
 	// than this number will fail to decode.
-	VersionLatest uint = 0
+	MnemonicVersionLatest MnemonicVersion = 1
 
-	// VersionBitCount is the number of bits in the backup payload reserved for the version number.
-	VersionBitCount uint = 4
+	// EraLatest is the latest known mnemonikey era number.
+	EraLatest Era = 0
+)
+
+const (
+	// MnemonicVersionBitCount is the number of bits in the backup payload reserved for the version number.
+	MnemonicVersionBitCount uint = 4
 
 	// CreationOffsetBitCount is the number of bits used to represent a key creation offset.
 	CreationOffsetBitCount uint = 31
@@ -35,14 +37,17 @@ const (
 	// EntropyBitCount is the number of bits of entropy in the seed used to derive PGP keys.
 	EntropyBitCount = 128
 
-	// MnemonicSize is the number of mnemonic words needed to encode
-	// the key creation offset, the checksum, and 128 bits of seed entropy.
-	MnemonicSize uint = 14
+	// SaltBitCount is the number of bits of salt used for seed encryption keys.
+	SaltBitCount uint = 19
+
+	// EncSeedVerifyBitCount is the number of bits used for seed encryption key validation.
+	EncSeedVerifyBitCount uint = 5
 )
 
-const checksumMask = (1 << ChecksumBitCount) - 1
-
-var entropyMask = new(big.Int).SetBytes(bytes.Repeat([]byte{0xFF}, EntropyBitCount/8))
+const (
+	checksumMask      = (1 << ChecksumBitCount) - 1
+	encSeedVerifyMask = (1 << EncSeedVerifyBitCount) - 1
+)
 
 // MaxCreationTime is the farthest point in the future that the mnemonikey recovery phrase
 // encoding algorithm can represent key creation timestamps for.

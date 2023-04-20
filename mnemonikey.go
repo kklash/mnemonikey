@@ -2,12 +2,16 @@ package mnemonikey
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"math/big"
 	"time"
 
+	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 
@@ -49,13 +53,13 @@ type Mnemonikey struct {
 //
 // The key creation timestamp is hashed when computing the PGP public key fingerprint,
 // and thus is critical to ensuring deterministic key re-generation. This function rounds
-// the creation time down to the most recent EpochIncrement before creation, so that it can
+// the creation time down to the next lowest EpochIncrement before creation, so that it can
 // be encoded into a recovery mnemonic.
 //
 // The user ID parameters, name and email, are not required but are highly recommended
 // to assist in identifying the key later.
 func New(seed *Seed, creation time.Time, opts *KeyOptions) (*Mnemonikey, error) {
-	if err := checkSeedVersion(seed.Version); err != nil {
+	if err := seed.Era().check(); err != nil {
 		return nil, err
 	}
 
@@ -212,25 +216,29 @@ func (mnk *Mnemonikey) EncodeSubkeysPGPArmor(password []byte, withSelfCert bool)
 	return pgpArmorKey, nil
 }
 
-// EncodeMnemonic encodes the Mnemonikey seed and creation offset into an English recovery
-// mnemonic. The recovery mnemonic alone is sufficient to recover the entire set of keys.
-func (mnk *Mnemonikey) EncodeMnemonic() ([]string, error) {
-	creationOffset := int64(mnk.keyCreationTime.Sub(EpochStart) / EpochIncrement)
+// creationOffset returns the creation offset number, used for encoding the recovery phrase.
+func (mnk *Mnemonikey) creationOffset() int64 {
+	return int64(mnk.keyCreationTime.Sub(EpochStart) / EpochIncrement)
+}
 
-	payloadInt := big.NewInt(int64(mnk.seed.Version))
-	payloadInt.Lsh(payloadInt, EntropyBitCount)
-	payloadInt.Or(payloadInt, mnk.seed.Value)
-	payloadInt.Lsh(payloadInt, CreationOffsetBitCount)
-	payloadInt.Or(payloadInt, big.NewInt(creationOffset))
+func (mnk *Mnemonikey) encodeMnemonic(version MnemonicVersion, payloadBitBuffer *bitBuffer) ([]string, error) {
+	// Append creation time.
+	payloadBitBuffer.AppendTrailingBits(big.NewInt(mnk.creationOffset()), CreationOffsetBitCount)
 
-	payloadBitCount := VersionBitCount + EntropyBitCount + CreationOffsetBitCount
-	payloadBytes := payloadInt.FillBytes(make([]byte, (payloadBitCount+7)/8))
+	// Compute & append checksum.
+	checksum := checksumMask & crc32.ChecksumIEEE(payloadBitBuffer.Bytes())
+	payloadBitBuffer.AppendTrailingBits(big.NewInt(int64(checksum)), ChecksumBitCount)
 
-	checksum := checksumMask & crc32.ChecksumIEEE(payloadBytes)
-	payloadInt.Lsh(payloadInt, ChecksumBitCount)
-	payloadInt.Or(payloadInt, big.NewInt(int64(checksum)))
+	expectedBitLen := version.payloadBitCount()
+	actualBitLen := payloadBitBuffer.BitLen()
+	if actualBitLen != expectedBitLen {
+		return nil, fmt.Errorf(
+			"payload has incorrect bit length, wanted %d for version %d, got %d bits",
+			expectedBitLen, version, actualBitLen,
+		)
+	}
 
-	indices, err := mnemonic.EncodeToIndices(payloadInt, payloadBitCount+ChecksumBitCount)
+	indices, err := mnemonic.EncodeToIndices(payloadBitBuffer.Int(), payloadBitBuffer.BitLen())
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode payload to indices: %w", err)
 	}
@@ -240,6 +248,70 @@ func (mnk *Mnemonikey) EncodeMnemonic() ([]string, error) {
 		return nil, fmt.Errorf("failed to encode indices to words: %w", err)
 	}
 	return words, nil
+}
+
+// EncodeMnemonicPlaintext encodes the Mnemonikey seed and creation offset into an English mnemonic
+// recovery phrase. The recovery phrase alone is sufficient to recover the entire set of keys.
+func (mnk *Mnemonikey) EncodeMnemonicPlaintext() ([]string, error) {
+	if err := mnk.seed.Era().check(); err != nil {
+		return nil, err
+	}
+
+	// Version 0 indicates a plaintext phrase.
+	version := MnemonicVersion(0)
+
+	payloadBitBuffer := newBitBuffer(big.NewInt(int64(version)), MnemonicVersionBitCount)
+	payloadBitBuffer.AppendTrailingBits(mnk.seed.Int(), EntropyBitCount)
+
+	return mnk.encodeMnemonic(version, payloadBitBuffer)
+}
+
+// EncodeMnemonicEncrypted encodes the Mnemonikey seed and creation offset into an English
+// mnemonic recovery phrase. The recovery phrase is encrypted with the given password
+// so that the same password must be used upon recovery to decrypt the phrase.
+//
+// Without the password, someone in possession of an encrypted phrase would see the key's
+// metadata (version, creation time) but would not be able to use it to derive the correct
+// PGP private keys.
+func (mnk *Mnemonikey) EncodeMnemonicEncrypted(password []byte, random io.Reader) ([]string, error) {
+	if err := mnk.seed.Era().check(); err != nil {
+		return nil, err
+	}
+
+	if len(password) == 0 {
+		return nil, errors.New("cannot encrypt recovery phrase with empty password")
+	}
+
+	// Version 1 indicates an encrypted phrase.
+	version := MnemonicVersion(1)
+	payloadBitBuffer := newBitBuffer(big.NewInt(int64(version)), MnemonicVersionBitCount)
+
+	saltInt, err := rand.Int(random, big.NewInt(int64(1<<SaltBitCount)))
+	if err != nil {
+		return nil, err
+	}
+
+	encSeedSaltBuf := newBitBuffer(saltInt, SaltBitCount)
+	encSeedSaltBuf.AppendTrailingBits(big.NewInt(mnk.creationOffset()), CreationOffsetBitCount)
+
+	encSeedKey := argon2.IDKey(password, encSeedSaltBuf.Bytes(), argonTimeFactor, argonMemoryFactor, argonThreads, 17)
+	block, err := aes.NewCipher(encSeedKey[:16])
+	if err != nil {
+		return nil, err
+	}
+	encSeed := make([]byte, 16)
+	block.Encrypt(encSeed, mnk.seed.Bytes())
+	encSeedVerify := big.NewInt(int64(encSeedKey[16] & encSeedVerifyMask))
+
+	// Append:
+	// - encSeed
+	// - salt
+	// - encSeedVerify
+	payloadBitBuffer.AppendTrailingBits(new(big.Int).SetBytes(encSeed), EntropyBitCount)
+	payloadBitBuffer.AppendTrailingBits(saltInt, SaltBitCount)
+	payloadBitBuffer.AppendTrailingBits(encSeedVerify, EncSeedVerifyBitCount)
+
+	return mnk.encodeMnemonic(version, payloadBitBuffer)
 }
 
 func armorEncode(blockType string, data []byte) (string, error) {
