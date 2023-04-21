@@ -1,5 +1,11 @@
 name: Unit Tests
-on: [push]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 env:
   GOVERSION: "1.19.4"
   GOPATH: "/tmp/gopath"
