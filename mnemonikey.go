@@ -108,8 +108,8 @@ func (mnk *Mnemonikey) UserID() string {
 	return string(mnk.pgpKeySet.UserID.Encode())
 }
 
-// FingerprintV4 returns the SHA1 hash of the master key.
-func (mnk *Mnemonikey) FingerprintV4() []byte {
+// Fingerprint returns the fingerprint hash of the master key.
+func (mnk *Mnemonikey) Fingerprint() []byte {
 	return mnk.pgpKeySet.MasterKey.FingerprintV4()
 }
 
@@ -128,9 +128,9 @@ func (mnk *Mnemonikey) SubkeyTypes() []SubkeyType {
 	return subkeyTypes
 }
 
-// SubkeyFingerprintV4 returns the SHA1 hash of the given subkey type.
+// SubkeyFingerprint returns the fingerprint hash of the given subkey type.
 // Returns nil if the Mnemonikey was created without the given subkey.
-func (mnk *Mnemonikey) SubkeyFingerprintV4(subkeyType SubkeyType) []byte {
+func (mnk *Mnemonikey) SubkeyFingerprint(subkeyType SubkeyType) []byte {
 	switch subkeyType {
 	case SubkeyTypeEncryption:
 		if mnk.pgpKeySet.EncryptionSubkey != nil {

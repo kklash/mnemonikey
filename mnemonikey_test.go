@@ -84,11 +84,11 @@ func TestMnemonikey(t *testing.T) {
 	}
 
 	t.Run("fingerprint matches", func(t *testing.T) {
-		if actualFpr := fmt.Sprintf("%X", mnk.FingerprintV4()); actualFpr != fingerprint {
+		if actualFpr := fmt.Sprintf("%X", mnk.Fingerprint()); actualFpr != fingerprint {
 			t.Fatalf("fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
 		}
 
-		actualEncryptionSubkeyFingerprint := fmt.Sprintf("%X", mnk.SubkeyFingerprintV4(SubkeyTypeEncryption))
+		actualEncryptionSubkeyFingerprint := fmt.Sprintf("%X", mnk.SubkeyFingerprint(SubkeyTypeEncryption))
 		if actualEncryptionSubkeyFingerprint != encryptionSubkeyFingerprint {
 			t.Fatalf(
 				"encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
@@ -130,11 +130,11 @@ func TestMnemonikey(t *testing.T) {
 
 	t.Run("recovered key fingerprint matches", func(t *testing.T) {
 		for _, recoveredKey := range recoveredKeys {
-			if actualFpr := fmt.Sprintf("%X", recoveredKey.FingerprintV4()); actualFpr != fingerprint {
+			if actualFpr := fmt.Sprintf("%X", recoveredKey.Fingerprint()); actualFpr != fingerprint {
 				t.Fatalf("recovered key fingerprint does not match\nWanted %s\nGot    %s", fingerprint, actualFpr)
 			}
 
-			recoveredEncryptionSubkeyFingerprint := fmt.Sprintf("%X", recoveredKey.SubkeyFingerprintV4(SubkeyTypeEncryption))
+			recoveredEncryptionSubkeyFingerprint := fmt.Sprintf("%X", recoveredKey.SubkeyFingerprint(SubkeyTypeEncryption))
 			if recoveredEncryptionSubkeyFingerprint != encryptionSubkeyFingerprint {
 				t.Fatalf(
 					"recovered encryption subkey fingerprint does not match\nWanted %s\nGot    %s",
@@ -160,7 +160,7 @@ func TestMnemonikey(t *testing.T) {
 		}
 
 		expectedFingerprint := "696F446E6C6AF70FD04CA4BC4DF250AD768F1D6D"
-		actualFpr := fmt.Sprintf("%X", incrementedKey.SubkeyFingerprintV4(SubkeyTypeEncryption))
+		actualFpr := fmt.Sprintf("%X", incrementedKey.SubkeyFingerprint(SubkeyTypeEncryption))
 		if actualFpr != expectedFingerprint {
 			t.Fatalf(
 				"incremented encryption subkey fingerprint does not match\nWanted %s\nGot    %s",

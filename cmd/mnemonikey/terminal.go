@@ -110,7 +110,7 @@ func justifyOptionDescription(description string) string {
 
 func printKeyDebugInfo(mnk *mnemonikey.Mnemonikey) {
 	info := [][2]string{
-		{"Master key Fingerprint", fmt.Sprintf("%X", mnk.FingerprintV4())},
+		{"Master key Fingerprint", fmt.Sprintf("%X", mnk.Fingerprint())},
 		{"User ID", fmt.Sprintf("%q", mnk.UserID())},
 		{"Created at", mnk.CreatedAt().Format(time.RFC3339)},
 	}
@@ -119,7 +119,7 @@ func printKeyDebugInfo(mnk *mnemonikey.Mnemonikey) {
 	}
 	for _, subkeyType := range mnk.SubkeyTypes() {
 		key := fmt.Sprintf("%s subkey fingerprint", capitalize(subkeyType))
-		info = append(info, [2]string{key, fmt.Sprintf("%X", mnk.SubkeyFingerprintV4(subkeyType))})
+		info = append(info, [2]string{key, fmt.Sprintf("%X", mnk.SubkeyFingerprint(subkeyType))})
 	}
 	printDebugInfo(os.Stderr, info)
 }
