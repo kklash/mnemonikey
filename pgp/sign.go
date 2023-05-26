@@ -52,6 +52,7 @@ func Sign(privateKey ed25519.PrivateKey, req *SignatureRequest) *Signature {
 		HashFunction:     req.HashFunction,
 		UnhashedSubpackets: []*Subpacket{
 			{
+				// TODO remove this if using a key with version 5.
 				Type: SubpacketTypeIssuer,
 				Body: req.SigningKeyFingerprint[len(req.SigningKeyFingerprint)-8:],
 			},

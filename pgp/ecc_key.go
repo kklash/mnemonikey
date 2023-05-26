@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
 	"math/big"
 	"time"
@@ -106,6 +107,18 @@ func (key *ellipticCurveKey) FingerprintV4() []byte {
 	h := sha1.New()
 	h.Write([]byte{publicKeyPrefixV4})
 	binary.Write(h, binary.BigEndian, uint16(len(publicKeyPayload)))
+	h.Write(publicKeyPayload)
+
+	return h.Sum(nil)
+}
+
+// FingerprintV5 returns the 32-byte SHA256 hash of the serialized public key.
+func (key *ellipticCurveKey) FingerprintV5() []byte {
+	publicKeyPayload := key.encodePublic()
+
+	h := sha256.New()
+	h.Write([]byte{publicKeyPrefixV5})
+	binary.Write(h, binary.BigEndian, uint32(len(publicKeyPayload)))
 	h.Write(publicKeyPayload)
 
 	return h.Sum(nil)

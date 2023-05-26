@@ -26,6 +26,7 @@ const (
 	// These prefixes are prepended before data to be hashed, usually to ensure hash
 	// preimage namespacing.
 	publicKeyPrefixV4 byte = 0x99
+	publicKeyPrefixV5 byte = 0x9A
 	userIDPrefix      byte = 0xB4
 
 	// This specifier tells OpenPGP the expected algorithm needed to decrypt an S2K
