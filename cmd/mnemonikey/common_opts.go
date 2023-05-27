@@ -105,8 +105,8 @@ func (opts *GenerateRecoverOptions) DecodeOnlyKeyTypes() (
 
 // RecoverConvertOptions is the set of options common to both recover and convert commands.
 type RecoverConvertOptions struct {
-	SimpleInput bool
-	WordFile    string
+	SimpleInput   bool
+	InputWordFile string
 }
 
 // AddFlags registers the common set of options as command line flags.
@@ -121,10 +121,27 @@ func (opts *RecoverConvertOptions) AddFlags(flags *flag.FlagSet) {
 	)
 
 	flags.StringVar(
-		&opts.WordFile,
-		"word-file",
+		&opts.InputWordFile,
+		"in-word-file",
 		"",
 		"Read the words of the mnemonic from this `file`. Words should be separated by whitespace "+
 			"and the file should contain the exact words. Useful for debugging.",
+	)
+}
+
+// GenerateConvertOptions is the set of options common to both generate and convert commands.
+type GenerateConvertOptions struct {
+	OutputWordFile string
+}
+
+// AddFlags registers the common set of options as command line flags.
+func (opts *GenerateConvertOptions) AddFlags(flags *flag.FlagSet) {
+	flags.StringVar(
+		&opts.OutputWordFile,
+		"out-word-file",
+		"",
+		"Write the words of the recovery phrase to this `file` in PLAIN TEXT. Useful for debugging. "+
+			"Do not use this if you care about keeping your keys safe. Words will be separated by a "+
+			"single space. The file will contain the exact words and nothing else.",
 	)
 }

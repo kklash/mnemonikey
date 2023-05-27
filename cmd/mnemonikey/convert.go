@@ -11,6 +11,7 @@ import (
 type ConvertOptions struct {
 	CommonOptions
 	RecoverConvertOptions
+	GenerateConvertOptions
 
 	EncryptPhrase  bool
 	OutputWordFile string
@@ -29,6 +30,7 @@ var ConvertCommand = &Command[ConvertOptions]{
 	AddFlags: func(flags *flag.FlagSet, opts *ConvertOptions) {
 		opts.CommonOptions.AddFlags(flags)
 		opts.RecoverConvertOptions.AddFlags(flags)
+		opts.GenerateConvertOptions.AddFlags(flags)
 
 		flags.BoolVar(
 			&opts.EncryptPhrase,
@@ -36,15 +38,6 @@ var ConvertCommand = &Command[ConvertOptions]{
 			false,
 			"If true, encrypt the recovery phrase with a new password. The resulting phrase will "+
 				"require the same password for later recovery. If false, output a plaintext phrase.",
-		)
-
-		flags.StringVar(
-			&opts.OutputWordFile,
-			"out-word-file",
-			"",
-			"Write the words of the recovery phrase to this `file` in PLAIN TEXT. Useful for debugging. "+
-				"Do not use this if you care about keeping your keys safe. Words will be separated by a "+
-				"single space. The file will contain the exact words and nothing else.",
 		)
 	},
 	Execute: func(opts *ConvertOptions, args []string) error {
@@ -80,10 +73,10 @@ func decodeAndConvertPhrase(opts *ConvertOptions) (err error) {
 		}
 	}
 
-	if opts.WordFile == "" {
+	if opts.InputWordFile == "" {
 		printMnemonic(recoveryMnemonic)
 	} else {
-		if err := saveMnemonic(recoveryMnemonic, opts.WordFile); err != nil {
+		if err := saveMnemonic(recoveryMnemonic, opts.InputWordFile); err != nil {
 			return fmt.Errorf("failed to write words to file: %w", err)
 		}
 	}

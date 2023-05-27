@@ -19,8 +19,8 @@ var DefaultName = "anonymous"
 type GenerateOptions struct {
 	CommonOptions
 	GenerateRecoverOptions
+	GenerateConvertOptions
 
-	WordFile      string
 	EncryptPhrase bool
 }
 
@@ -38,15 +38,7 @@ var GenerateCommand = &Command[GenerateOptions]{
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
 		opts.CommonOptions.AddFlags(flags)
 		opts.GenerateRecoverOptions.AddFlags(flags)
-
-		flags.StringVar(
-			&opts.WordFile,
-			"word-file",
-			"",
-			"Write the words of the recovery phrase to this `file` in PLAIN TEXT. Useful for debugging. "+
-				"Do not use this if you care about keeping your keys safe. Words will be separated by a "+
-				"single space. The file will contain the exact words and nothing else.",
-		)
+		opts.GenerateConvertOptions.AddFlags(flags)
 
 		flags.BoolVar(
 			&opts.EncryptPhrase,
@@ -79,9 +71,9 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	if opts.WordFile != "" {
-		if _, err := os.Stat(opts.WordFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("refused to write word-file to %s: file already exists", opts.WordFile)
+	if opts.OutputWordFile != "" {
+		if _, err := os.Stat(opts.OutputWordFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("refused to write word-file to %s: file already exists", opts.OutputWordFile)
 		}
 	}
 
@@ -136,8 +128,8 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	if opts.WordFile != "" {
-		if err := saveMnemonic(recoveryMnemonic, opts.WordFile); err != nil {
+	if opts.OutputWordFile != "" {
+		if err := saveMnemonic(recoveryMnemonic, opts.OutputWordFile); err != nil {
 			return fmt.Errorf("failed to write words to file: %w", err)
 		}
 	}
@@ -152,7 +144,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	fmt.Println(pgpArmorKey)
 	eprint(colorEnd)
 
-	if opts.WordFile == "" {
+	if opts.OutputWordFile == "" {
 		printMnemonic(recoveryMnemonic)
 	}
 

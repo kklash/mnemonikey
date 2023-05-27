@@ -87,8 +87,8 @@ func decodeMnemonicFromInput(
 		words []string
 		err   error
 	)
-	if opts.WordFile != "" {
-		words, err = readWordFile(opts.WordFile)
+	if opts.InputWordFile != "" {
+		words, err = readWordFile(opts.InputWordFile)
 	} else if opts.SimpleInput {
 		words, err = userInputMnemonicSimple()
 	} else {
