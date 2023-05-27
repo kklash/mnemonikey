@@ -102,3 +102,29 @@ func (opts *GenerateRecoverOptions) DecodeOnlyKeyTypes() (
 	}
 	return
 }
+
+// RecoverConvertOptions is the set of options common to both recover and convert commands.
+type RecoverConvertOptions struct {
+	SimpleInput bool
+	WordFile    string
+}
+
+// AddFlags registers the common set of options as command line flags.
+func (opts *RecoverConvertOptions) AddFlags(flags *flag.FlagSet) {
+	flags.BoolVar(
+		&opts.SimpleInput,
+		"simple",
+		false,
+		"Revert to a simpler terminal input mechanism for entering the recovery "+
+			"phrase. Useful if the fancy terminal manipulation used by the default "+
+			"input mode doesn't work on your system.",
+	)
+
+	flags.StringVar(
+		&opts.WordFile,
+		"word-file",
+		"",
+		"Read the words of the mnemonic from this `file`. Words should be separated by whitespace "+
+			"and the file should contain the exact words. Useful for debugging.",
+	)
+}

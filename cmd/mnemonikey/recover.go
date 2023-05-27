@@ -17,11 +17,10 @@ const maxSubkeyIndex uint = 0xFFFF
 
 type RecoverOptions struct {
 	CommonOptions
-	Common      GenerateRecoverOptions
-	SimpleInput bool
-	WordFile    string
-	SelfCert    bool
+	GenerateRecoverOptions
+	RecoverConvertOptions
 
+	SelfCert                  bool
 	EncryptionSubkeyIndex     uint
 	AuthenticationSubkeyIndex uint
 	SigningSubkeyIndex        uint
@@ -44,24 +43,8 @@ var RecoverCommand = &Command[RecoverOptions]{
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
 		opts.CommonOptions.AddFlags(flags)
-		opts.Common.AddFlags(flags)
-
-		flags.BoolVar(
-			&opts.SimpleInput,
-			"simple",
-			false,
-			"Revert to a simpler terminal input mechanism for entering the recovery "+
-				"phrase. Useful if the fancy terminal manipulation used by the default "+
-				"input mode doesn't work on your system.",
-		)
-
-		flags.StringVar(
-			&opts.WordFile,
-			"word-file",
-			"",
-			"Read the words of the mnemonic from this `file`. Words should be separated by whitespace "+
-				"and the file should contain the exact words. Useful for debugging.",
-		)
+		opts.GenerateRecoverOptions.AddFlags(flags)
+		opts.RecoverConvertOptions.AddFlags(flags)
 
 		flags.BoolVar(
 			&opts.SelfCert,
@@ -96,18 +79,73 @@ var RecoverCommand = &Command[RecoverOptions]{
 	},
 }
 
+func decodeMnemonicFromInput(
+	opts RecoverConvertOptions,
+	verbose bool,
+) (*mnemonikey.Seed, *mnemonikey.DecodedMnemonic, error) {
+	var (
+		words []string
+		err   error
+	)
+	if opts.WordFile != "" {
+		words, err = readWordFile(opts.WordFile)
+	} else if opts.SimpleInput {
+		words, err = userInputMnemonicSimple()
+	} else {
+		words, err = userInputMnemonic()
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	decodedMnemonic, err := mnemonikey.DecodeMnemonic(words)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if verbose {
+		eprintln("Decoded mnemonic recovery phrase:")
+		printDebugInfo(os.Stderr, [][2]string{
+			{"version", strconv.Itoa(int(decodedMnemonic.Version))},
+			{"era", strconv.Itoa(int(decodedMnemonic.Version.Era()))},
+			{"encrypted", fmt.Sprint(decodedMnemonic.Encrypted())},
+		})
+		eprintln()
+	}
+
+	for {
+		var phrasePassword []byte
+		if decodedMnemonic.Encrypted() {
+			phrasePassword, err = userInputPassword("Enter phrase decryption password: ", false)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		// If the phrase is not encrypted, this will still return the correct seed.
+		seed, err := decodedMnemonic.DecryptSeed(phrasePassword)
+		if errors.Is(err, mnemonikey.ErrMnemonicDecryption) {
+			eprintln(red(err.Error()))
+			continue
+		} else if err != nil {
+			return nil, nil, err
+		}
+		return seed, decodedMnemonic, nil
+	}
+}
+
 func recoverAndPrintKey(opts *RecoverOptions) error {
 	keyOptions := &mnemonikey.KeyOptions{
-		Name:                      strings.TrimSpace(opts.Common.Name),
-		Email:                     strings.TrimSpace(opts.Common.Email),
+		Name:                      strings.TrimSpace(opts.Name),
+		Email:                     strings.TrimSpace(opts.Email),
 		EncryptionSubkeyIndex:     uint16(opts.EncryptionSubkeyIndex),
 		AuthenticationSubkeyIndex: uint16(opts.AuthenticationSubkeyIndex),
 		SigningSubkeyIndex:        uint16(opts.SigningSubkeyIndex),
 	}
 
 	var err error
-	if opts.Common.TTL != "" {
-		keyOptions.TTL, err = parseTTL(opts.Common.TTL)
+	if opts.TTL != "" {
+		keyOptions.TTL, err = parseTTL(opts.TTL)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
@@ -119,58 +157,15 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return fmt.Errorf("invalid subkey index; must be less than or equal to %d", maxSubkeyIndex)
 	}
 
-	outputMasterKey, subkeyTypes, err := opts.Common.DecodeOnlyKeyTypes()
+	outputMasterKey, subkeyTypes, err := opts.DecodeOnlyKeyTypes()
 	if err != nil {
 		return err
 	}
 	keyOptions.Subkeys = subkeyTypes
 
-	var words []string
-	if opts.WordFile != "" {
-		words, err = readWordFile(opts.WordFile)
-	} else if opts.SimpleInput {
-		words, err = userInputMnemonicSimple()
-	} else {
-		words, err = userInputMnemonic()
-	}
+	seed, decodedMnemonic, err := decodeMnemonicFromInput(opts.RecoverConvertOptions, opts.Verbose)
 	if err != nil {
 		return err
-	}
-
-	decodedMnemonic, err := mnemonikey.DecodeMnemonic(words)
-	if err != nil {
-		return err
-	}
-
-	if opts.Verbose {
-		eprintln("Decoded mnemonic recovery phrase:")
-		printDebugInfo(os.Stderr, [][2]string{
-			{"version", strconv.Itoa(int(decodedMnemonic.Version))},
-			{"era", strconv.Itoa(int(decodedMnemonic.Version.Era()))},
-			{"encrypted", fmt.Sprint(decodedMnemonic.Encrypted())},
-		})
-		eprintln()
-	}
-
-	var seed *mnemonikey.Seed
-	for {
-		var phrasePassword []byte
-		if decodedMnemonic.Encrypted() {
-			phrasePassword, err = userInputPassword("Enter phrase decryption password: ", false)
-			if err != nil {
-				return err
-			}
-		}
-
-		// If the phrase is not encrypted, this will still return the correct seed.
-		seed, err = decodedMnemonic.DecryptSeed(phrasePassword)
-		if errors.Is(err, mnemonikey.ErrMnemonicDecryption) {
-			eprintln(red(err.Error()))
-			continue
-		} else if err != nil {
-			return err
-		}
-		break
 	}
 
 	mnk, err := mnemonikey.New(seed, decodedMnemonic.Creation(), keyOptions)
@@ -179,7 +174,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 	}
 
 	var password []byte
-	if opts.Common.EncryptKeys {
+	if opts.EncryptKeys {
 		password, err = userInputPassword("Enter key encryption password: ", true)
 		if err != nil {
 			return err

@@ -18,7 +18,8 @@ var DefaultName = "anonymous"
 
 type GenerateOptions struct {
 	CommonOptions
-	Common        GenerateRecoverOptions
+	GenerateRecoverOptions
+
 	WordFile      string
 	EncryptPhrase bool
 }
@@ -36,7 +37,7 @@ var GenerateCommand = &Command[GenerateOptions]{
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
 		opts.CommonOptions.AddFlags(flags)
-		opts.Common.AddFlags(flags)
+		opts.GenerateRecoverOptions.AddFlags(flags)
 
 		flags.StringVar(
 			&opts.WordFile,
@@ -54,7 +55,6 @@ var GenerateCommand = &Command[GenerateOptions]{
 			"Encrypt the exported recovery phrase with a password. The resulting phrase will "+
 				"require the same password for later recovery.",
 		)
-
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {
 		return generateAndPrintKey(opts)
@@ -63,8 +63,8 @@ var GenerateCommand = &Command[GenerateOptions]{
 
 func generateAndPrintKey(opts *GenerateOptions) error {
 	keyOptions := &mnemonikey.KeyOptions{
-		Name:  strings.TrimSpace(opts.Common.Name),
-		Email: strings.TrimSpace(opts.Common.Email),
+		Name:  strings.TrimSpace(opts.Name),
+		Email: strings.TrimSpace(opts.Email),
 	}
 
 	var (
@@ -72,8 +72,8 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		err      error
 	)
 
-	if opts.Common.TTL != "" {
-		keyOptions.TTL, err = parseTTL(opts.Common.TTL)
+	if opts.TTL != "" {
+		keyOptions.TTL, err = parseTTL(opts.TTL)
 		if err != nil {
 			return fmt.Errorf("%w: %s", ErrPrintUsage, err)
 		}
@@ -85,7 +85,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	outputMasterKey, subkeyTypes, err := opts.Common.DecodeOnlyKeyTypes()
+	outputMasterKey, subkeyTypes, err := opts.DecodeOnlyKeyTypes()
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	}
 
 	var pgpEncryptionPassword []byte
-	if opts.Common.EncryptKeys {
+	if opts.EncryptKeys {
 		pgpEncryptionPassword, err = userInputPassword("Enter key encryption password: ", true)
 		if err != nil {
 			return err
@@ -137,8 +137,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	}
 
 	if opts.WordFile != "" {
-		wordFileContent := strings.Join(recoveryMnemonic, " ") + "\n"
-		if err := os.WriteFile(opts.WordFile, []byte(wordFileContent), 0600); err != nil {
+		if err := saveMnemonic(recoveryMnemonic, opts.WordFile); err != nil {
 			return fmt.Errorf("failed to write words to file: %w", err)
 		}
 	}
@@ -154,23 +153,33 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	eprint(colorEnd)
 
 	if opts.WordFile == "" {
-		eprint("\nThis is the mnemonic phrase which can be used to recover the private key:\n\n")
 		printMnemonic(recoveryMnemonic)
-		eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
-		eprint(
-			underline(
-				"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
-			),
-		)
 	}
 
 	return nil
 }
 
 func printMnemonic(words []string) {
+	eprint("\nThis is the mnemonic phrase which can be used to recover the private key:\n\n")
+
 	for i, word := range words {
 		humanIndex := strconv.Itoa(i + 1)
 		spacing := strings.Repeat(" ", 4-len(humanIndex))
 		eprintf("%s:%s%s\n", humanIndex, spacing, bold(magenta((word))))
 	}
+
+	eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
+	eprint(
+		underline(
+			"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
+		),
+	)
+}
+
+func saveMnemonic(words []string, wordFile string) error {
+	wordFileContent := strings.Join(words, " ") + "\n"
+	if err := os.WriteFile(wordFile, []byte(wordFileContent), 0600); err != nil {
+		return fmt.Errorf("failed to write words to file: %w", err)
+	}
+	return nil
 }
