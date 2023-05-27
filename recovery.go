@@ -55,6 +55,11 @@ func (dm *DecodedMnemonic) Creation() time.Time {
 	return EpochStart.Add(time.Duration(dm.creationOffset) * EpochIncrement)
 }
 
+// CreationOffset returns the raw creation offset value encoded in the mnemonic phrase.
+func (dm *DecodedMnemonic) CreationOffset() uint32 {
+	return dm.creationOffset
+}
+
 // DecryptSeed decrypts the encrypted entropy in the mnemonic using the
 // given password. Returns ErrMnemonicDecryption if the password was
 // incorrect.

@@ -576,11 +576,11 @@ $ mnemonikey recover -only signing -sig-index 1 -self-cert=false | gpg --import
 
 #### Generate a master key and signing subkey (starts at default index 0).
 
-<img width="700" src="https://user-images.githubusercontent.com/31221309/205466128-53f94d4d-7a6d-445b-8e5e-76001b859b43.gif">
+<img width="700" src="https://github.com/kklash/mnemonikey/assets/31221309/6b5c4de0-0898-4829-b751-dcea5a6560cc">
 
 #### Derive the new signing subkey at index 1, and revoke the old one at index 0.
 
-<img width="700" src="https://user-images.githubusercontent.com/31221309/205466129-8f9528e8-0ee8-49ec-9f98-3197d79bc103.gif">
+<img width="700" src="https://github.com/kklash/mnemonikey/assets/31221309/6420d764-7ba3-42ac-994d-e31317598057">
 
 `-self-cert=false` is an optional flag which tells Mnemonikey not to output the master key's self-certification signature on the user ID. This is useful when minting new subkeys, in a situation where you already have the master key stored safely in your keyring. It prevents adding unneeded extra certification signatures to your keychain.
 
