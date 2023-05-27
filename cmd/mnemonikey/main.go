@@ -12,6 +12,7 @@ type RootOptions struct {
 var subcommands = map[string]Runner{
 	"generate": GenerateCommand,
 	"recover":  RecoverCommand,
+	"convert":  ConvertCommand,
 }
 
 var RootCommand = &Command[RootOptions]{
@@ -21,6 +22,7 @@ var RootCommand = &Command[RootOptions]{
 		"mnemonikey <COMMAND> [help | --help | -h] [OPTIONS]\n",
 		"mnemonikey generate  - Generate a new OpenPGP private key and display its recovery phrase.",
 		"mnemonikey recover   - Recover an OpenPGP private key from a mnemonic recovery phrase.",
+		"mnemonikey convert   - Convert between mnemonic recovery phrase formats.",
 	},
 	Execute: func(_ *RootOptions, args []string) error {
 		if len(args) == 0 {
