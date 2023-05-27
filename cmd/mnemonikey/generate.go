@@ -71,12 +71,6 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	if opts.OutputWordFile != "" {
-		if _, err := os.Stat(opts.OutputWordFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("refused to write word-file to %s: file already exists", opts.OutputWordFile)
-		}
-	}
-
 	outputMasterKey, subkeyTypes, err := opts.DecodeOnlyKeyTypes()
 	if err != nil {
 		return err
@@ -169,6 +163,12 @@ func printMnemonic(words []string) {
 }
 
 func saveMnemonic(words []string, wordFile string) error {
+	if _, err := os.Stat(wordFile); err == nil {
+		return fmt.Errorf("refused to write word-file to %s: file already exists", wordFile)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to write word-file to %s: path is not accessible: %w", wordFile, err)
+	}
+
 	wordFileContent := strings.Join(words, " ") + "\n"
 	if err := os.WriteFile(wordFile, []byte(wordFileContent), 0600); err != nil {
 		return fmt.Errorf("failed to write words to file: %w", err)
