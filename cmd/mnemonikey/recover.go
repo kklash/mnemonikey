@@ -16,6 +16,7 @@ import (
 const maxSubkeyIndex uint = 0xFFFF
 
 type RecoverOptions struct {
+	CommonOptions
 	Common      GenerateRecoverOptions
 	SimpleInput bool
 	WordFile    string
@@ -42,6 +43,7 @@ var RecoverCommand = &Command[RecoverOptions]{
 		"mnemonikey recover -simple -name myuser",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *RecoverOptions) {
+		opts.CommonOptions.AddFlags(flags)
 		opts.Common.AddFlags(flags)
 
 		flags.BoolVar(
@@ -140,7 +142,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return err
 	}
 
-	if opts.Common.Verbose {
+	if opts.Verbose {
 		eprintln("Decoded mnemonic recovery phrase:")
 		printDebugInfo(os.Stderr, [][2]string{
 			{"version", strconv.Itoa(int(decodedMnemonic.Version))},
@@ -194,7 +196,7 @@ func recoverAndPrintKey(opts *RecoverOptions) error {
 		return err
 	}
 
-	if opts.Common.Verbose {
+	if opts.Verbose {
 		eprintln("Re-derived OpenPGP key:")
 		printKeyDebugInfo(mnk)
 		eprintln()

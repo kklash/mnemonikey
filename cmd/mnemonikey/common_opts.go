@@ -8,6 +8,21 @@ import (
 	"github.com/kklash/mnemonikey"
 )
 
+// CommonOptions is a set of options common to every command.
+type CommonOptions struct {
+	Verbose bool
+}
+
+// AddFlags registers the common set of options as command line flags.
+func (opts *CommonOptions) AddFlags(flags *flag.FlagSet) {
+	flags.BoolVar(
+		&opts.Verbose,
+		"verbose",
+		false,
+		"Print extra debugging information to stderr when building keys.",
+	)
+}
+
 // GenerateRecoverOptions is the set of options common to both recover and generate commands.
 type GenerateRecoverOptions struct {
 	Name         string
@@ -15,7 +30,6 @@ type GenerateRecoverOptions struct {
 	TTL          string
 	EncryptKeys  bool
 	OnlyKeyTypes string
-	Verbose      bool
 }
 
 // AddFlags registers the common set of options as command line flags.
@@ -56,13 +70,6 @@ func (opts *GenerateRecoverOptions) AddFlags(flags *flag.FlagSet) {
 		"",
 		"Only output a subset key containing the given key `types` as PGP packets. A comma-delimited "+
 			"list of the following possible values:  master | encryption | signing | authentication",
-	)
-
-	flags.BoolVar(
-		&opts.Verbose,
-		"verbose",
-		false,
-		"Print extra debugging information to stderr when building keys.",
 	)
 }
 

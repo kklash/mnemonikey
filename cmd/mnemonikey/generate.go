@@ -17,6 +17,7 @@ import (
 var DefaultName = "anonymous"
 
 type GenerateOptions struct {
+	CommonOptions
 	Common        GenerateRecoverOptions
 	WordFile      string
 	EncryptPhrase bool
@@ -34,6 +35,7 @@ var GenerateCommand = &Command[GenerateOptions]{
 		"mnemonikey generate -ttl 17w",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *GenerateOptions) {
+		opts.CommonOptions.AddFlags(flags)
 		opts.Common.AddFlags(flags)
 
 		flags.StringVar(
@@ -141,7 +143,7 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		}
 	}
 
-	if opts.Common.Verbose {
+	if opts.Verbose {
 		eprintf("Generated OpenPGP private key with %d bits of entropy:\n", mnemonikey.EntropyBitCount)
 		printKeyDebugInfo(mnk)
 		eprintln()
