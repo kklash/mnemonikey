@@ -1,6 +1,6 @@
 module github.com/kklash/mnemonikey/cmd/mnemonikey
 
-go 1.19
+go 1.20
 
 replace github.com/kklash/mnemonikey => ../..
 

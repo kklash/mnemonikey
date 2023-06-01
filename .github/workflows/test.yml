@@ -7,7 +7,7 @@ on:
     branches:
       - main
 env:
-  GOVERSION: "1.19.4"
+  GOVERSION: "1.20.4"
   GOPATH: "/tmp/gopath"
   GOROOT: "/tmp/go"
 jobs:

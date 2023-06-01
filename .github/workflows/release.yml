@@ -29,7 +29,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.19.4.linux-amd64.tar.gz"
+          goversion: "https://dl.google.com/go/go1.20.4.linux-amd64.tar.gz"
           project_path: "./cmd/mnemonikey"
           binary_name: "mnemonikey"
           extra_files: LICENSE README.md
