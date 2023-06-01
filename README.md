@@ -44,6 +44,14 @@ To use `mnemonikey` as a Golang library:
 $ go get -u github.com/kklash/mnemonikey
 ```
 
+### Reproducible Builds
+
+You can compile [reproducible builds](https://reproducible-builds.org/) of the `mnemonikey` CLI tool for all platforms by executing the [`repro-build.sh` script](./repro-build.sh). The resulting binaries will be reproducible by anyone using the same `go` compiler version to build the same source code - even when cross-compiling across platforms.
+
+Note that these reproducible builds are compiled with [CGO](https://go.dev/blog/cgo) disabled, meaning they will be slightly less performant than a build with CGO enabled would be. Mnemonikey is not a performance-critical application, so most users will not notice any difference. It is, however, a _security-critical_ application. A maliciously built version of `mnemonikey` could expose a user's PGP key, or generate weak keys which an attacker could predict.
+
+With a small primary codebase and only a couple of dependencies, anyone can quickly audit Mnemonikey's codebase and dependencies for malicious interference or supply chain attacks. Once the source code is confirmed to be secure, a reproducibly compiled binary offers the guarantee that, _as long as the compiler is sound,_ so too is the binary. Thus, any user can verify the distributed builds of `mnemonikey` were compiled honestly, using the same source code.
+
 ## Background
 
 Normally, PGP key backups must be done manually by backing up private key export files, but files can be easily lost, corrupted, or deleted accidentally. Whenever new subkeys are added to the master key, the backup must be updated manually. This is a risky and error-prone practice, as I have personally discovered several times.
