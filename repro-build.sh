@@ -20,14 +20,12 @@ for os in linux windows darwin; do
   for arch in 386 amd64 arm64; do
     if [[ $arch == "386" ]] && [[ $os == "darwin" ]]; then
       continue
-    elif [[ $arch == "arm64" ]] && [[ $os == "windows" ]]; then
-      continue
     fi
 
     outfile="mnemonikey-$os-$arch"
     echo "Building $outfile..."
 
-     GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false -C ./cmd/mnemonikey -o "../../build/$outfile"
+    GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false -C ./cmd/mnemonikey -o "../../build/$outfile"
   done
 done
 
