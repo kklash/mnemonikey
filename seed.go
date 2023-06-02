@@ -23,14 +23,25 @@ type Seed struct {
 // NewSeed constructs a Seed with a given era number using the provided entropy integer.
 //
 // Returns ErrUnsupportedSeedEra if the era number is greater than EraLatest.
+//
+// Returns an error if entropyInt's bit-length is greater than EntropyBitCount.
 func NewSeed(era Era, entropyInt *big.Int) (*Seed, error) {
 	if err := era.check(); err != nil {
 		return nil, err
 	}
+
+	if l := entropyInt.BitLen(); l > EntropyBitCount {
+		return nil, fmt.Errorf(
+			"provided entropy integer is %d bits, exceeding maximum size of %d",
+			l, EntropyBitCount,
+		)
+	}
+
 	seed := &Seed{
 		era:   era,
 		value: entropyInt,
 	}
+
 	return seed, nil
 }
 
