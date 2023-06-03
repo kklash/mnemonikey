@@ -97,10 +97,12 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 		if opts.UnsafeEntropy == "-" {
 			entropySource = os.Stdin
 		} else {
-			entropySource, err = os.Open(opts.UnsafeEntropy)
+			file, err := os.Open(opts.UnsafeEntropy)
 			if err != nil {
 				return fmt.Errorf("failed to open entropy source file: %w", err)
 			}
+			defer file.Close()
+			entropySource = file
 		}
 	}
 
