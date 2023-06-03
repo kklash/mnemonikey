@@ -22,6 +22,7 @@ type GenerateOptions struct {
 	GenerateConvertOptions
 
 	EncryptPhrase bool
+	UnsafeEntropy string
 }
 
 var GenerateCommand = &Command[GenerateOptions]{
@@ -46,6 +47,13 @@ var GenerateCommand = &Command[GenerateOptions]{
 			false,
 			"Encrypt the exported recovery phrase with a password. The resulting phrase will "+
 				"require the same password for later recovery.",
+		)
+		flags.StringVar(
+			&opts.UnsafeEntropy,
+			"unsafe-entropy",
+			"",
+			bold("(UNSAFE)")+" Generate the key using seed entropy drawn directly from the given `file`. "+
+				"Specify '-' to read entropy from standard input. "+bold("You probably shouldn't use this flag."),
 		)
 	},
 	Execute: func(opts *GenerateOptions, args []string) error {
@@ -77,7 +85,28 @@ func generateAndPrintKey(opts *GenerateOptions) error {
 	}
 	keyOptions.Subkeys = subkeyTypes
 
-	seed, err := mnemonikey.GenerateSeed(rand.Reader)
+	entropySource := rand.Reader
+	if opts.UnsafeEntropy != "" {
+		eprintln(
+			red(
+				bold("WARNING:") + " The -unsafe-entropy option is dangerous and can produce" +
+					" weak PGP keys if used incorrectly.",
+			),
+		)
+
+		if opts.UnsafeEntropy == "-" {
+			entropySource = os.Stdin
+		} else {
+			file, err := os.Open(opts.UnsafeEntropy)
+			if err != nil {
+				return fmt.Errorf("failed to open entropy source file: %w", err)
+			}
+			defer file.Close()
+			entropySource = file
+		}
+	}
+
+	seed, err := mnemonikey.GenerateSeed(entropySource)
 	if err != nil {
 		return err
 	}
