@@ -24,8 +24,8 @@ var ConvertCommand = &Command[ConvertOptions]{
 		"mnemonikey convert",
 		"mnemonikey convert -encrypt",
 		"mnemonikey convert -simple",
-		"mnemonikey convert -word-file /etc/words",
-		"mnemonikey convert -word-file /etc/words -out-word-file /etc/new-words",
+		"mnemonikey convert -in-word-file /etc/words",
+		"mnemonikey convert -in-word-file /etc/words -out-word-file /etc/new-words",
 	},
 	AddFlags: func(flags *flag.FlagSet, opts *ConvertOptions) {
 		opts.CommonOptions.AddFlags(flags)
