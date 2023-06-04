@@ -66,6 +66,45 @@ Many early users of [Bitcoin](https://bitcoin.org) also learned this lesson in a
 
 <sub>On the left, a 12-word Bitcoin BIP39 recovery phrase written on paper. On the right, the output of [`paperkey`](https://www.jabberwocky.com/software/paperkey/). Which would you rather use to recover the root of your digital identity?</sub>
 
+## Usage
+
+The `mnemonikey` CLI tool has several subcommands. Each subcommand has its own sets of command-line options.
+
+### `mnemonikey generate`
+
+Generates a fresh seed and derives a set of PGP keys therefrom. Invoking `mnemonikey generate` will write an ASCII-armor encoded set of PGP private keys to standard output, and will export a plaintext recovery phrase to standard error. This phrase can be used to fully recover the exact same PGP key.
+
+Note that the PGP key is derived from the seed, but this process cannot be reversed - You cannot convert a PGP key back into a mnemonikey recovery phrase. This means that the recovery phrase is only available once, upon calling `mnemonikey generate`. As such, it is imperative to write down the recovery phrase immediately.
+
+Additional flags for the `generate` subcommand include options to define the user ID (`-name` and `-email`), set key expiry (`-ttl`), or enable encryption either of the keys (`-encrypt-keys`) or of the recovery phrase (`-encrypt-phrase`).
+
+For full details of all available options, see the output of `mnemonikey generate -h` or `mnemonikey generate --help`.
+
+### `mnemonikey recover`
+
+Recovers a set of PGP keys from an existing recovery phrase. Invoking `mnemonikey recover` will prompt the user to enter the recovery phrase into an interactive terminal prompt. By default, the prompt supports auto-complete of words. Autocomplete suggestions can be accepted by pressing Tab, and words can be submitted by pressing Enter or Space. Incorrectly submitted words can be revised by hitting the left arrow key.
+
+Recovering takes the seed and creation time embedded in the recovery phrase, and re-derives PGP keys therefrom.
+
+Recovery phrases are designed for long term storage and future-proofing. [The recovery phrase contains a version number](#version-numbers) which allows future versions of Mnemonikey to identify the exact algorithm used to derive your keys. This means that even if Mnemonikey is upgraded in the future to introduce new recovery phrase formats, your existing phrase will always derive the same PGP keys.
+
+[Each recovery phrase contains a checksum](#checksum) which will help identify any errors made during entry. To ensure you wrote down the phrase correctly, it is wise to attempt a recovery immediately from your saved phrase after generating a fresh key.
+
+Note that while recovering, you will need to provide the `-name` and `-email` parameters anew to construct the user ID on the recovered key, as these identifiers are not embedded in the recovery phrase.
+
+When recovering a key, you can tell `mnemonikey` to derive keys at different indices than the keys output by `mnemonikey generate`. This allows cycling of subkeys. [See the Subkey Lifecycle section below for more info.](#subkey-lifecycle)
+
+For full details of all available options, see the output of `mnemonikey recover -h` or `mnemonikey recover --help`.
+
+### `mnemonikey convert`
+
+Converts a recovery phrase from one format to another. Mnemonikey supports [encrypted recovery phrases](#encrypted-phrases) which allow the holder to protect their seed with a custom password. This password can be changed, removed, or added, by using the `mnemonikey convert` subcommand to convert the seed into different recovery phrase formats.
+
+For example, one can use `mnemonikey convert` to convert a plaintext recovery phrase into one which is encrypted with a password, or the reverse. It can also decrypt an encrypted recovery phrase and output the equivalent plaintext recovery phrase. Each format of the phrase embeds the same seed and creation timestamp, and thus will derive the same PGP keys.
+
+Converting a phrase to add or change a password **does not invalidate any previous phrases.** Any existing encrypted or plaintext recovery phrases will still be perfectly usable as they previously were. If one of your recovery phrases may have been exposed, you should immediately endorse a new PGP key and revoke the one whose seed may have been exposed. See the [Encrypted Phrases](#encrypted-phrases) section for more info.
+
+For full details of all available options, see the output of `mnemonikey convert -h` or `mnemonikey convert --help`.
 
 # Specification :scroll:
 
@@ -616,7 +655,7 @@ Using encrypted phrases does have a small drawback: We must now include a `salt`
 
 We also further salt the password hash with the key creation time, to further distinguish the seed encryption keys of different users.
 
-**The encryption on a recovery phrase is not meant to protect a publicly available phrase for a long period of time, but to protect a physically secure phrase for a short period of time.** It is suitable only to give a victim enough time to revoke her exposed PGP key before an attacker can brute-force the password. It is *not* intended to protect the seed while it is exposed publicly on some insecure platform for long stretches of time - e.g. stored in Google Docs or DropBox. To achieve security in that scenario, a suitably (read: ridiculously) strong password with at least 128 bits of entropy should be used.
+**The encryption on a recovery phrase is not meant to protect a publicly available phrase for a long period of time, but to protect a physically secure phrase for a short period of time.** It is suitable only to give a victim enough time to endorse a new freshly generated PGP key and revoke her old exposed PGP key. This must be done before an attacker can brute-force the password. It is *not* intended to protect the seed while it is exposed publicly on some insecure platform for long stretches of time - e.g. stored in Google Docs or DropBox. To achieve security in that scenario, a suitably (read: ridiculously) strong password with at least 128 bits of entropy should be used.
 
 19 bits of salt was determined to be the best trade-off between brevity and security. A shorter salt is acceptable. Most likely, if your recovery phrase is exposed, you will probably know about it. E.g. [your safety deposit box was broken into](https://www.latimes.com/california/story/2021-06-09/fbi-beverly-hills-safe-deposit-boxes-forfeiture-cash-jewelry), or [someone accidentally published a picture of your recovery phrase online](https://twitter.com/lopp/status/1604599964713328640)). It will presumably be rare and challenging for an adversary to acquire your encrypted recovery phrase. This contrasts with salted password hashes, which are commonly stored in bulk on networked cloud databases, and are frequently leaked. As such the size of the salt is less critical.
 
