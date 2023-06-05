@@ -7,6 +7,7 @@ mkdir -p build
 export CGO_ENABLED=0
 export GOAMD64=v1
 export GO386=sse2
+export BUILD_FLAGS="-trimpath -buildvcs=false -ldflags='-s -w'"
 
 GOVERSION="$(go env GOVERSION)"
 echo "Compiling reproducible builds."
@@ -25,7 +26,7 @@ for os in linux windows darwin; do
     outfile="mnemonikey-$os-$arch"
     echo "Building $outfile..."
 
-    GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false -C ./cmd/mnemonikey -o "../../build/$outfile"
+    GOOS=$os GOARCH=$arch go build $BUILD_FLAGS -C ./cmd/mnemonikey -o "../../build/$outfile"
   done
 done
 
