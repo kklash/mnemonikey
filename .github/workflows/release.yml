@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+env:
+  CGO_ENABLED: '0'
+  GO386: sse2
+
 jobs:
   create-release:
     name: Release mnemonikey Binary
@@ -19,8 +23,6 @@ jobs:
         exclude:
           - goarch: "386"
             goos: darwin
-          - goarch: arm64
-            goos: windows
 
     steps:
       - uses: actions/checkout@v3
@@ -29,8 +31,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
+          goamd64: v1
           goversion: "https://dl.google.com/go/go1.20.4.linux-amd64.tar.gz"
           project_path: "./cmd/mnemonikey"
           binary_name: "mnemonikey"
           extra_files: LICENSE README.md
+          build_flags: "-trimpath -buildvcs=false -ldflags='-s -w'"
           md5sum: FALSE
