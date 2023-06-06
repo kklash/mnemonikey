@@ -34,7 +34,7 @@ jobs:
           goamd64: v1
           goversion: "https://dl.google.com/go/go1.20.4.linux-amd64.tar.gz"
           project_path: "./cmd/mnemonikey"
-          binary_name: "mnemonikey"
+          asset_name: "mnemonikey-$GITHUB_REF_NAME-${{ matrix.goos }}-${{ matrix.goarch }}"
           extra_files: LICENSE README.md
           build_flags: "-trimpath -buildvcs=false"
           ldflags: "-s -w"
