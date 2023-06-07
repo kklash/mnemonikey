@@ -185,6 +185,13 @@ func printMnemonic(words []string) {
 
 	eprint("\nSave this phrase in a secure place, preferably offline, on paper.\n\n")
 	eprint(
+		justifyTerminalWidth(
+			0,
+			"Once you have saved it, use the 'mnemonikey recover' command "+
+				"to verify that you have saved the phrase correctly.\n\n",
+		),
+	)
+	eprint(
 		underline(
 			"If you do not save it now, you will " + bold("NEVER") + " see this phrase again.\n\n",
 		),

@@ -44,21 +44,23 @@ To use `mnemonikey` as a Golang library:
 $ go get -u github.com/kklash/mnemonikey
 ```
 
+API documentation for the Mnemonikey library is [available on `pkg.go.dev`](https://pkg.go.dev/github.com/kklash/mnemonikey).
+
 ### Reproducible Builds
 
-You can compile [reproducible builds](https://reproducible-builds.org/) of the `mnemonikey` CLI tool for all platforms by executing the [`repro-build.sh` script](./repro-build.sh). The resulting binaries will be reproducible by anyone using the same `go` compiler version to build the same source code - even when cross-compiling across platforms.
+You can compile [reproducible builds](https://reproducible-builds.org/) of the `mnemonikey` CLI tool for all platforms by executing the [`repro-build.sh` script](./repro-build.sh). The resulting binaries will be exactly the same file as those built by anyone else using the same `go` compiler version to build the same source code - even when cross-compiling across platforms.
 
 Note that these reproducible builds are compiled with [CGO](https://go.dev/blog/cgo) disabled, meaning they will be slightly less performant than a build with CGO enabled would be. Mnemonikey is not a performance-critical application, so most users will not notice any difference. It is, however, a _security-critical_ application. A maliciously built version of `mnemonikey` could expose a user's PGP key, or generate weak keys which an attacker could predict.
 
-With a small primary codebase and only a couple of dependencies, anyone can quickly audit Mnemonikey's codebase and dependencies for malicious interference or supply chain attacks. Once the source code is confirmed to be secure, a reproducibly compiled binary offers the guarantee that, _[as long as the compiler is sound](https://www.cs.cmu.edu/~rdriley/487/papers/Thompson_1984_ReflectionsonTrustingTrust.pdf),_ so too is the binary. Thus, any user can verify the distributed builds of `mnemonikey` were compiled honestly, using the same source code.
+With a small primary codebase and only a couple of dependencies, anyone can quickly audit Mnemonikey's codebase and dependencies for malicious interference or supply chain attacks. Once the source code is confirmed to be secure, a reproducibly compiled binary offers the guarantee that, _[as long as the compiler is sound](https://www.cs.cmu.edu/~rdriley/487/papers/Thompson_1984_ReflectionsonTrustingTrust.pdf),_ so too is the binary. Thus, any user can verify the distributed builds of `mnemonikey` were compiled honestly, using the same source code, without relying on the integrity of the maintainer of this repository ([me](https://github.com/kklash)).
 
 ## Background
 
-Normally, PGP key backups must be done manually by backing up private key export files, but files can be easily lost, corrupted, or deleted accidentally. Whenever new subkeys are added to the master key, the backup must be updated manually. This is a risky and error-prone practice, as I have personally discovered several times.
+Traditionally, PGP key backups are done manually by backing up private key export files. Files can be easily lost, corrupted, or deleted accidentally. Whenever new subkeys are added to the master key, the backup must be updated manually. This is a risky and error-prone practice, as I have personally discovered several times.
 
 The [`paperkey`](https://www.jabberwocky.com/software/paperkey/) backup tool is also similarly fragile, as it involves either copying by-hand a large blob of hexadecimal numbers, or printing `paperkey`'s output to paper. Copying by-hand risks errors in duplication, and printing risks exposure of your private key material to a printer, which are not known for prioritizing security. Many printers run outdated firmware, are wide-open by default on wireless networks, and [may cache plaintext copies of the documents they've printed, in memory or on-disk](https://www.cbsnews.com/news/digital-photocopiers-loaded-with-secrets/).
 
-Many early users of [Bitcoin](https://bitcoin.org) also learned this lesson in a different context. In 2013, [mnemonic recovery phrases were invented to resolve it](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). They eventually became the norm for Bitcoin wallet backups.
+Many early users of [Bitcoin](https://bitcoin.org) also learned this lesson in a different context. In 2013, [mnemonic recovery phrases were standardized to resolve it](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). They eventually became the norm for Bitcoin wallet backups. Almost every Bitcoin wallet in popular use today exports keys in the form of a mnemonic recovery phrase.
 
 |Bitcoin Recovery Phrase|`paperkey` Output|
 |:-:|:-:|
@@ -70,11 +72,21 @@ Many early users of [Bitcoin](https://bitcoin.org) also learned this lesson in a
 
 The `mnemonikey` CLI tool has several subcommands. Each subcommand has its own sets of command-line options.
 
+<img src="https://github.com/kklash/mnemonikey/assets/31221309/9fa8a5ea-2477-4a25-a981-6ccd4d0ddaf1">
+
+<!-- https://github.com/kklash/mnemonikey/files/11667171/mnemonikey-flow.tldr.zip -->
+
+The above chart illustrates the role of each Mnemonikey command by showing the flow from initial key generation through recovery and phrase conversion.
+
+Below are additional details on each individual command.
+
 ### `mnemonikey generate`
 
-Generates a fresh seed and derives a set of PGP keys therefrom. Invoking `mnemonikey generate` will write an ASCII-armor encoded set of PGP private keys to standard output, and will export a plaintext recovery phrase to standard error. This phrase can be used to fully recover the exact same PGP key.
+Generates a fresh seed and derives a set of PGP keys therefrom. Invoking `mnemonikey generate` will write an ASCII-armor encoded set of freshly-generated PGP private keys to standard output, and will export a plaintext recovery phrase to standard error. This phrase can be used to fully recover the exact same PGP key.\*
 
-Note that the PGP key is derived from the seed, but this process cannot be reversed - You cannot convert a PGP key back into a mnemonikey recovery phrase. This means that the recovery phrase is only available once, upon calling `mnemonikey generate`. As such, it is imperative to write down the recovery phrase immediately.
+<sub>\* There may be slight differences between original and recovered keys if different flags are given when using the `recover` subcommand later. For instance, one might supply a different user ID, or define a different key expiry (TTL). If these mismatches occur, they are little more than a minor annoyance. In most cases, PGP client software will simply merge two such PGP keys, e.g. by keeping both user IDs on the key, when importing them.</sub>
+
+Note that the PGP key is derived from the seed, but this process cannot be reversed; One cannot convert a PGP key back into a Mnemonikey recovery phrase. This means that the recovery phrase is only available once, upon calling `mnemonikey generate`. As such, it is imperative to write down the recovery phrase immediately.
 
 Additional flags for the `generate` subcommand include options to define the user ID (`-name` and `-email`), set key expiry (`-ttl`), or enable encryption either of the keys (`-encrypt-keys`) or of the recovery phrase (`-encrypt-phrase`).
 
@@ -84,31 +96,344 @@ For full details of all available options, see the output of `mnemonikey generat
 
 Recovers a set of PGP keys from an existing recovery phrase. Invoking `mnemonikey recover` will prompt the user to enter the recovery phrase into an interactive terminal prompt. By default, the prompt supports auto-complete of words. Autocomplete suggestions can be accepted by pressing Tab, and words can be submitted by pressing Enter or Space. Incorrectly submitted words can be revised by hitting the left arrow key.
 
-Recovering takes the seed and creation time embedded in the recovery phrase, and re-derives PGP keys therefrom.
+The `recover` subcommand processes the seed and creation time embedded in the recovery phrase, and re-derives PGP keys therefrom.
 
-Recovery phrases are designed for long term storage and future-proofing. [The recovery phrase contains a version number](#version-numbers) which allows future versions of Mnemonikey to identify the exact algorithm used to derive your keys. This means that even if Mnemonikey is upgraded in the future to introduce new recovery phrase formats, your existing phrase will always derive the same PGP keys.
+Recovery phrases are designed for long term storage and future-proofing. [The recovery phrase contains a version number](#version-numbers) which allows future versions of Mnemonikey to identify the exact algorithm used to derive the keys. This means that even if Mnemonikey is upgraded in the future to introduce new recovery phrase formats, an old existing phrase will always derive the same PGP keys, and one need not worry about finding an old out-of-date version of Mnemonikey.
 
-[Each recovery phrase contains a checksum](#checksum) which will help identify any errors made during entry. To ensure you wrote down the phrase correctly, it is wise to attempt a recovery immediately from your saved phrase after generating a fresh key.
+[Each recovery phrase contains a checksum](#checksum) which will help identify any errors made during entry. To ensure the phrase is written down correctly, it is wise to attempt a recovery immediately from the saved phrase after generating a fresh key.
 
-Note that while recovering, you will need to provide the `-name` and `-email` parameters anew to construct the user ID on the recovered key, as these identifiers are not embedded in the recovery phrase.
+Note that while recovering, a user will need to provide the `-name` and `-email` parameters anew to construct the user ID on the recovered key, as these identifiers are not embedded in the recovery phrase.
 
-When recovering a key, you can tell `mnemonikey` to derive keys at different indices than the keys output by `mnemonikey generate`. This allows cycling of subkeys. [See the Subkey Lifecycle section below for more info.](#subkey-lifecycle)
+When recovering a key, one can tell `mnemonikey` to derive keys at different indices than the keys output by `mnemonikey generate`. This allows cycling of subkeys. [See the Subkey Lifecycle section below for more info.](#subkey-lifecycle)
 
 For full details of all available options, see the output of `mnemonikey recover -h` or `mnemonikey recover --help`.
 
 ### `mnemonikey convert`
 
-Converts a recovery phrase from one format to another. Mnemonikey supports [encrypted recovery phrases](#encrypted-phrases) which allow the holder to protect their seed with a custom password. This password can be changed, removed, or added, by using the `mnemonikey convert` subcommand to convert the seed into different recovery phrase formats.
+Converts a recovery phrase from one format to another. Mnemonikey supports [encrypted recovery phrases](#encrypted-phrases) which allow the holder to protect their seed with a custom password. This password can be changed, removed, or added, by using the `mnemonikey convert` subcommand to convert an old phrase into a new one.
 
-For example, one can use `mnemonikey convert` to convert a plaintext recovery phrase into one which is encrypted with a password, or the reverse. It can also decrypt an encrypted recovery phrase and output the equivalent plaintext recovery phrase. Each format of the phrase embeds the same seed and creation timestamp, and thus will derive the same PGP keys.
+For example, one can use `mnemonikey convert` to convert a plaintext recovery phrase into one which is encrypted with a password, or the reverse. It can also decrypt an encrypted recovery phrase and output the equivalent plaintext recovery phrase. Or it can convert an encrypted recovery phrase into another encrypted phrase with a different password. Each format of the phrase embeds the same seed and creation timestamp, and thus will derive the same PGP keys.
 
 Converting a phrase to add or change a password **does not invalidate any previous phrases.** Any existing encrypted or plaintext recovery phrases will still be perfectly usable as they previously were. If one of your recovery phrases may have been exposed, you should immediately endorse a new PGP key and revoke the one whose seed may have been exposed. See the [Encrypted Phrases](#encrypted-phrases) section for more info.
 
 For full details of all available options, see the output of `mnemonikey convert -h` or `mnemonikey convert --help`.
 
+
+# Design Motivation :brain:
+
+In this section, we elaborate on the motivation behind the different design choices implied by the [Mnemonikey Specification](#specification-scroll).
+
+## Mission
+
+The purpose of Mnemonikey is to securely and deterministically derive a PGP key, and export a backup which contains the minimum amount of information needed to repeat the key derivation process. This backup can be used to recover the PGP key without adverse effects, much in the same way a BIP39 recovery phrase allows the bearer to re-derive the private keys in a cryptocurrency wallet.
+
+## Creation Timestamps
+
+OpenPGP keys are identified by their fingerprint, which is a hash of the serialized public key, including its creation time. That means in order to make deterministic key backup and recovery possible without invalidating the previous key's signatures, the creation time must either be encoded into the backup, or it must be a static constant used for all keys. We chose to encode the creation time into the backup, because having distinct key creation times is convenient and worth the extra few bits of information lengthening the backup.
+
+Key creation times in OpenPGP keys are represented as 32-bit unix timestamps. We can save a bit more space by reducing the size of the key creation timestamp slightly. We don't need a full 32-bits of precision, since a very large chunk of time since the unix epoch on `1970-01-01` has already passed, and Mnemonikey was invented in 2023. If we define our own epoch, we can easily trim down to 31 bits of precision, while retaining perfect second-level accuracy, and supporting key creation times until `2091-01-18`. Hopefully by then, people will have adopted more advanced cryptography tools than PGP. If Mnemonikey is still in use by then, we can simply bump the version number and redefine the creation timestamp encoding rules, for example by defining a new epoch.
+
+We could reduce the size of the key creation timestamp much more by sacrificing timestamp granularity. If we were OK with per-day accuracy only, we could reduce the creation offset integer's size to 15-bits of precision, but this comes at the cost of privacy: Keys created with such granularity in their timestamp could be easily identified as having come from Mnemonikey.
+
+|Timestamp size|Words Needed|Ceiling (1s granularity)|Ceiling (1min granularity)|Ceiling (1h granularity)|Ceiling (1d granularity)|
+|:------------:|:----------:|:----------------------:|:------------------------:|:----------------------:|:----------------------:|
+|32 bits|14 words|`2159-02-06`|Very High|Very High|Very High|
+|31 bits|14 words|`2091-01-18`|`6106-01-23`|Very High|Very High|
+|30 bits|14 words|`2057-01-09`|`4064-07-12`|Very High|Very High|
+|29 bits|14 words|`2040-01-05`|`3043-10-07`|Very High|Very High|
+|28 bits|14 words|`2031-07-04`|`2533-05-20`|Very High|Very High|
+|27 bits|14 words|`2027-04-03`|`2278-03-11`|Very High|Very High|
+|26 bits|14 words|`2025-02-15`|`2150-08-06`|`9678-09-28`|Very High|
+|25 bits|14 words|`2024-01-24`|`2086-10-18`|`5850-11-14`|Very High|
+|24 bits|13 words|Too Low|`2054-11-24`|`3936-12-08`|Very High|
+|23 bits|13 words|Too Low|`2038-12-13`|`2979-12-19`|Very High|
+|22 bits|13 words|Too Low|`2030-12-22`|`2501-06-26`|Very High|
+|21 bits|13 words|Too Low|`2026-12-27`|`2262-03-30`|`7764-10-21`|
+|20 bits|13 words|Too Low|`2024-12-28`|`2142-08-15`|`4893-11-25`|
+|19 bits|13 words|Too Low|Too Low|`2082-10-23`|`3458-06-14`|
+|18 bits|13 words|Too Low|Too Low|`2052-11-26`|`2740-09-22`|
+|17 bits|13 words|Too Low|Too Low|`2037-12-13`|`2381-11-11`|
+|16 bits|13 words|Too Low|Too Low|`2030-06-23`|`2202-06-07`|
+|15 bits|13 words|Too Low|Too Low|`2026-09-27`|`2112-09-18`|
+|14 bits|13 words|Too Low|Too Low|`2024-11-13`|`2067-11-09`|
+|13 bits|13 words|Too Low|Too Low|Too Low|`2045-06-05`|
+|12 bits|12 words|Too Low|Too Low|Too Low|`2034-03-19`|
+|11 bits|12 words|Too Low|Too Low|Too Low|`2028-08-09`|
+|10 bits|12 words|Too Low|Too Low|Too Low|`2025-10-20`|
+|9 bits|12 words|Too Low|Too Low|Too Low|`2024-05-26`|
+|8 bits|12 words|Too Low|Too Low|Too Low|Too Low|
+
+<details>
+    <summary><i>Script to generate the above table</i></summary>
+
+```python
+#!/usr/bin/env python3
+
+from datetime import datetime
+
+column_names = [
+  "Timestamp size",
+  "Words Needed",
+  "Ceiling (1s granularity)",
+  "Ceiling (1min granularity)",
+  "Ceiling (1h granularity)",
+  "Ceiling (1d granularity)",
+]
+
+granularities = [1, 60, 60**2, 60**2 * 24]
+
+epoch = 1672531200
+
+rows = []
+
+for ts_bits in reversed(range(8, 33)):
+  n_words = (128 + ts_bits + 4 + 11) // 12
+
+  row = ["%d bits" % ts_bits, "%d words" % n_words]
+
+  for g in granularities:
+    try:
+      d = datetime.fromtimestamp(epoch + (1 << ts_bits)*g - 1)
+      if d.year <= 2023:
+        ceiling = "Too Low"
+      else:
+        ceiling = "`" + str(d.date()) + "`"
+    except:
+      ceiling = "Very High"
+    row.append(ceiling)
+  rows.append("|" + '|'.join(row) + "|")
+
+header = "|" + "|".join(column_names) + "|"
+delim =  "|" + "|".join([":" + "-" * (len(name)-2) + ":" for name in column_names]) + "|"
+
+print('\n'.join([header, delim] + rows))
+```
+</details>
+
+We might have chosen to require the user to provide a copy of the original public key when recovering, since an OpenPGP public key packet would also contain the key creation timestamp. This is the approach used by [`paperkey`](https://www.jabberwocky.com/software/paperkey/). However, it may be counterintuitive to the average PGP user to require the _public key_ to recover a _private key,_ so instead we keep a minimum of recovery information bundled in the recovery phrase, and restrict the generation process tightly so as to enforce determinism when the key is re-generated later. This choice also simplifies Mnemonikey implementations, because they do not need to be concerned with _parsing_ OpenPGP key packets, only _generating_ them.
+
+## Curve Choice
+
+We chose ED25519 as the elliptic curve for the output PGP keys because:
+
+- Its keys are very small.
+- It has excellent performance.
+- It is designed to avoid common security pitfalls in downstream implementations.
+- It is designed with 'nothing up my sleeve' parameters to reduce risk of a back-door.
+- It is usable for signing, encryption, and authentication with SSH.
+- Golang has first-class ED25519 and Curve25519 implementations available.
+
+## Subkey Lifecycle
+
+To allow cycling of subkeys, Mnemonikey can derive each type of subkey at any arbitrary index from 0 to 65535 (`0xFFFF`). Subkeys are always derived in parallel from the root key, and not from one-another. The only way to derive a new subkey is to use the root key, which can only be derived from the seed and creation time embedded in the recovery phrase.
+
+Below is a flow chart illustrating how individual PGP keys are derived from the seed and key creation timestamp.
+
+<img src="https://user-images.githubusercontent.com/31221309/209289189-b6a7a536-9f87-4a72-819f-a5e7f8662869.png">
+
+<!-- https://beta.tldraw.com/r/v2_c_8cvIL1LtquLf5X5fXFV8K -->
+
+No subkey has any special preference or power over any other. When generated, any subkeys derived from the same seed will all have the same creation timestamp as the master key.
+
+The master key cannot be used to re-derive any Mnemonikey subkeys, although it could be used to sign new non-deterministically generated subkeys out-of-band and bind them to the same user ID. **We recommend not to do this,** because any subkeys generated outside of Mnemonikey **cannot be re-generated** with the Mnemonikey recovery phrase later.
+
+The normal use of subkeys involves revoking subkeys once they become compromised or outdated. To do this with Mnemonikey, one would revoke their old subkey at index $n$ using a downstream PGP tool (`gpg --edit uid` and type `key n`, and then type `revkey`). Then Mnemonikey can be used to generate a fresh subkey at index $n+1$. This derived subkey should be exported on its own, orphaned from the master key and other subkeys, and imported into the PGP keychain.
+
+### Example
+
+**Derive a new _signing_ subkey at index `1` with the `mnemonikey` CLI, and import it into a GPG keychain which already contains the related master key.**
+
+```cli
+$ mnemonikey recover -only signing -sig-index 1 -self-cert=false | gpg --import
+```
+
+#### Generate a master key and signing subkey (starts at default index 0).
+
+<img width="700" src="https://github.com/kklash/mnemonikey/assets/31221309/6b5c4de0-0898-4829-b751-dcea5a6560cc">
+
+#### Derive the new signing subkey at index 1, and revoke the old one at index 0.
+
+<img width="700" src="https://github.com/kklash/mnemonikey/assets/31221309/6420d764-7ba3-42ac-994d-e31317598057">
+
+`-self-cert=false` is an optional flag which tells Mnemonikey not to output the master key's self-certification signature on the user ID. This is useful when minting new subkeys, in a situation where one already has the master key stored safely in a PGP keyring. It prevents adding unneeded extra certification signatures to the keychain.
+
+## Security
+
+PGP keys derived by Mnemonikey are entirely determined by the 128 bits of entropy in the seed and the distinguishing (but predictable) key creation timestamp. Argon2id hashes the seed and key creation time into a 256-bit _root key._
+
+Since the seed only bears 128 bits of entropy, and ED25519 private keys are 256-bit integers, there exists the potential for batched brute-force attacks which could yield some successful guesses across a large population of public keys. To mitigate this, we hash the key creation time as well, to add extra uniqueness to each key. The difficulty of the Argon2id password hashing function further reduces the feasibility of brute-force attacks by significantly increasing the time and memory cost of key derivation.
+
+To derive a full set of four OpenPGP keys - the master certification key and the signing/encryption/authentication subkeys - we need a total of $256 \cdot 4 = 1024$ bits of secure key material. For this we use the [HMAC-based Key Derivation Function (HKDF)](https://www.rfc-editor.org/rfc/rfc5869) Expand function to expand the uniformly random _root key_ into four 256-bit private keys. Each key including the master certification key is derived flatly from the _root key,_ without any hierarchy.
+
+### Encrypted Phrases
+
+Encrypted phrases offer additional protection from accidental exposure or theft of a recovery phrase.
+
+We could have chosen to follow the classic BIP39 mechanism of password-derived keys, where keys would be derived by hashing a user-specified password with the seed entropy. In this paradigm, a 'plaintext' phrase would be a recovery phrase plus an empty password. Using any other password would derive a completely different PGP key set. This allows one recovery phrase to be used to derive multiple PGP key sets, by using multiple unique derivation passwords. Each particular output PGP key set would be _tightly bound_ to the password and seed entropy which derived it.
+
+This approach has some flaws. Notably, it doesn't work very well for our specific domain of PGP keys. Unlike with Bitcoin wallets, most people only ever need one PGP master key. Having the ability to derive more PGP master keys by changing the derivation password can actually be counterintuitive. Most people are used to password-based logins, which either succeed or fail. In a BIP39-like derivation scheme, any password is allowed, and the user would have to check the output PGP key fingerprint to ensure they used the correct password and derived the expected keys. Having worked on a cryptocurrency wallet myself in the past, I am intimately familiar with the confusion this causes for non-expert users.
+
+Furthermore, a BIP39-like derivation scheme doesn't allow _changing passwords,_ and is not cross-compatible with plaintext backups. If you create a PGP key set which is derived from a specific seed and password, the keys _can only ever be recovered with that same seed and password._ If you ever want to change the password - or remove it entirely - you're out of luck and would have to take enormous effort to swap your whole digital identity to a whole new PGP key derived from your _new_ password.
+
+Rather than binding a password tightly to the PGP key, _encrypted phrases_ on the other hand, are more like a layer of protection _on top_ of a plaintext recovery phrase. With encrypted phrases, a user can decide at any point to re-export their recovery phrase with a new password. They can update their paper backups to use this new phrase encrypted with the new password, but keep the same resulting PGP key set. Similarly, someone with a plaintext recovery phrase could at any point choose to update their recovery phrase with password-protection (and vice-versa).
+
+Using encrypted phrases does have a small drawback: We must now include a `salt` value in the backup payload, to ensure the same password does not always hash to the same encryption key, thus reducing the feasibility of pre-computation attacks. This increases the size of the recovery phrase, but the additional flexibility is well worth it.
+
+We also further salt the password hash with the key creation time, to further distinguish the seed encryption keys of different users.
+
+**The encryption on a recovery phrase is not meant to protect a publicly available phrase for a long period of time, but to protect a physically secure phrase for a short period of time.** It is suitable only to give a victim enough time to endorse a new freshly generated PGP key and revoke her old exposed PGP key. This must be done before an attacker can brute-force the password. It is *not* intended to protect the seed while it is exposed publicly on some insecure platform for long stretches of time - e.g. stored in Google Docs or DropBox. To achieve security in that scenario, a suitably (read: ridiculously) strong password with at least 128 bits of entropy should be used.
+
+19 bits of salt was determined to be the best trade-off between brevity and security. A shorter salt is acceptable. Most likely, if your recovery phrase is exposed, you will probably know about it. E.g. [your safety deposit box was broken into](https://www.latimes.com/california/story/2021-06-09/fbi-beverly-hills-safe-deposit-boxes-forfeiture-cash-jewelry), or [someone accidentally published a picture of your recovery phrase online](https://twitter.com/lopp/status/1604599964713328640)). It will presumably be rare and challenging for an adversary to acquire your encrypted recovery phrase. This contrasts with salted password hashes, which are commonly stored in bulk on networked cloud databases, and are frequently leaked. As such the size of the salt is less critical.
+
+To give the decoder some indication of whether the password was correct or not, we also want some kind of checksum on the decrypted seed or on the encryption key.
+
+Using an _actual checksum_ - like CRC-32, which we use for the mnemonic phrase - might leak data about the seed or its encryption key. Instead we simply derive one extra byte from Argon2id when hashing the user's password, and use a few bits from that as the checksum. This way, the checksum is still derived from the password and salt, but doesn't leak any information about the seed, nor about the key used to decrypt the seed.
+
+## Encoding
+
+Each word in a recovery phrase is one of 4096 ( $2^{12}$ ) different words, and thus encodes 12 bits of information. To encode a plaintext recovery phrase, at minimum we need to store both the entropy (128 bits) and the key creation time offset from the epoch (31 bits).
+
+$128 + 31 = 159$ and $\frac{159}{12} = 13\frac{3}{12}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 14 words, leaving 9 unused bits. These last 9 bits can be used for a **4-bit version number** and **5-bit checksum**.
+
+For encrypted recovery phrases, we must also encode a `salt` value and a small checksum (`encSeedVerify`) in addition to the other fields. If we allot the same 5-bit checksum size for `encSeedVerify` as for the phrase checksum itself, we can now choose for `salt` a bit-size which is some multiple of $12n + 7$. So we could choose 7 bits, 19 bits, 31 bits, etc. For a balance of security and brevity, we selected 19 bits.
+
+This diagram demonstrates the **bit-level layout** of each word in a plaintext mnemonic recovery phrase, and how it encodes the backup payload and checksum. Each number from `0` to `b` (11) is an index of each of the 12 bits encoded by a word in the mnemonic.
+
+```
+|-- version --|------------------------------------ seed -------------------------------------
+|------------------ word 0 -------------------|------------------- word 1 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 2 -------------------|------------------- word 3 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 4 -------------------|------------------- word 5 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 6 -------------------|------------------- word 7 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+-------------------------------------------- seed --------------------------------------------
+|------------------ word 8 -------------------|------------------- word 9 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+-------------------- seed --------------------|--------------- creationOffset ----------------
+|------------------ word 10 ------------------|------------------- word 11 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+----------------------------- creationOffset -----------------------------|---- checksum ----|
+|------------------ word 12 ------------------|------------------- word 13 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+```
+
+|Field|Size|
+|:-:|:-:|
+|`version`|4 bits|
+|`seed`|128 bits|
+|`creationOffset`|31 bits|
+|`checksum`|5 bits|
+|---|---|
+|**Total**|168 bits|
+|**Words Needed**|$\frac{168}{12}=14$|
+
+This is an equivalent diagram and table showing the encoding layout of an encrypted phrase.
+
+```
+|-- version --|----------------------------------- encSeed -----------------------------------
+|------------------ word 0 -------------------|------------------- word 1 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 2 -------------------|------------------- word 3 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 4 -------------------|------------------- word 5 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 6 -------------------|------------------- word 7 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------------------------------ encSeed -------------------------------------------
+|------------------ word 8 -------------------|------------------- word 9 -------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+------------------- encSeed ------------------|-------------------- salt ---------------------
+|------------------ word 10 ------------------|------------------- word 11 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+---------- salt ----------|-- encSeedVerify --|--------------- creationOffset ----------------
+|------------------ word 12 ------------------|------------------- word 13 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+
+
+---------------------------- creationOffset ------------------------------|---- checksum ----|
+|------------------ word 12 ------------------|------------------- word 13 ------------------|
+0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
+```
+
+|Field|Size|
+|:-:|:-:|
+|`version`|4 bits|
+|`encSeed`|128 bits|
+|`salt`|19 bits|
+|`encSeedVerify`|5 bits|
+|`creationOffset`|31 bits|
+|`checksum`|5 bits|
+|---|---|
+|**Total**|192 bits|
+|**Words Needed**|$\frac{192}{12}=16$|
+
+
+## Wordlist
+
+To read more about the wordlist used to encode the Mnemonikey recovery phrases, [check out the separate `wordlist4096` repository](https://github.com/kklash/wordlist4096).
+
+## Version Numbers
+
+The version numbers embedded in mnemonic recovery phrases tell Mnemonikey implementations how to decode a recovery phrase and derive the PGP keys from the backup payload. The version number may be incremented in the future - for example, to fix a critical bug, support post-quantum key algorithms, or define a new key creation time epoch.
+
+The `era` number is distinct from the mnemonic `version` number.
+
+- Era numbers describe _how to derive PGP keys from a seed and creation time._
+- Version numbers describe _how to decode a recovery phrase into a seed and creation time._
+
+Version numbers map many-to-one into era numbers, so that a decoder can know which procedure to use to recover a PGP key set after decoding.
+
+The current latest era number is `0`.
+
+The only two version numbers which currently exist are `0` (denoting a standard plaintext recovery phrase) and `1` (denoting an encrypted recovery phrase). Both of these versions imply era `0`.
+
+Version numbers within an Era are cross-compatible: You can convert between recovery phrases in the same era without losing compatibility or changing the resulting PGP key set derived from the seed.
+
+Era numbers are not cross-compatible. If we change the procedure for recovering a PGP key set, this will fundamentally change the resulting PGP key set that we derive. As such, a key generated with a specific era can never be converted to a different era - although it could be converted between recovery phrase versions within its own era.
+
+## Checksum
+
+Words in a recovery phrase must already be members of the wordlist to be considered valid, but on the off-chance a user enters another valid but incorrect word, a 5-bit checksum will provide error detection with a collision probability of roughly $\frac{1}{32}$. With a word list of 4096 valid words, that means there are 128 possible collision-causing 1-word substitutions which the user could accidentally perform for each word in the phrase.
+
+We chose to use 32-bit [cyclic-redundancy-checks](https://en.wikipedia.org/wiki/Cyclic_redundancy_check) (CRC-32) with the IEEE generator polynomial as our checksum, because of its speed and ubiquitous availability. There are cross-compatible implementations available in the standard libraries of most programming languages, and numerous test vectors available should anyone need to re-implement it.
+
+
 # Specification :scroll:
 
-Here follows a specification which would allow anyone to re-implement `mnemonikey` in another language.
+Here follows a detailed technical specification of Mnemonikey's key derivation and encoding algorithms.
 
 -------------
 
@@ -125,7 +450,7 @@ Mnemonikey is primarily concerned with defining two high-level procedures:
 |------|------------|
 | PGP Key Set | A set of four PGP keys: the master key for certification, and three subkeys for signing, encryption, and authentication. |
 | Mnemonikey Epoch | Midnight in UTC time on new year's eve between 2022 and 2023 (AKA `1672531200` in unix time). This is used to identify the absolute time encoded by the key creation offset. |
-| Key Creation Offset | The number of seconds after the mnemonikey epoch when the PGP key set was created. This offset is serialized as a 31-bit unsigned integer in the backup payload. |
+| Key Creation Offset | The number of seconds after the Mnemonikey Epoch when the PGP key set was created. This offset is serialized as a 31-bit unsigned integer in the backup payload. |
 | Seed | A securely-generated random integer, containing 128 bits of entropy. |
 | Backup Payload | The combination of a seed and key creation offset. Together, they form a backup payload, which can be used to fully recover a PGP key set. |
 | Root Key | A 32-byte pseudo-random key derived from the seed and key creation time. |
@@ -211,7 +536,7 @@ The key derivation process deterministically constructs PGP keys from input seed
 
 | Input | Description | Required |
 |:-----:|:-----------:|:--------:|
-|`era`| An integer enum for versioning. The era describes how the inputs should be derived into keys. The current latest era number is `0`. New era numbers may be defined in the future which change the inner workings of mnemonikey PGP key derivation. | YES |
+|`era`| An integer enum for versioning. The era describes how the inputs should be derived into keys. The current latest era number is `0`. New era numbers may be defined in the future which change the inner workings of Mnemonikey PGP key derivation. | YES |
 |`seed`| A securely-generated random unsigned integer with 128 bits of entropy. | YES |
 |`creationOffset`| The number of seconds after the Mnemonikey Epoch when the key was created. Represented by a **31-bit** unsigned integer. | YES |
 |`name`| A human-readable display name used to build the PGP key's user-identifier string. | NO |
@@ -494,311 +819,6 @@ If a decoder detects an encrypted phrase:
 
 - Decoders should check that the password given by the user hashes to produce an encryption key which shares the same 5 `encSeedVerify` checksum bits.
 - Decoders may end up accepting invalid passwords with a $\frac{1}{2^5}$ probability, due to the limited 5-bit size of the `encSeedVerify` checksum bits.
-
-# Design Motivation :brain:
-
-In this section, we elaborate on the motivation behind the different design choices implied by the above specification.
-
-## Mission
-
-The purpose of Mnemonikey is to securely and deterministically generate a PGP key, and export a backup which contains the minimum amount of information needed to repeat the key generation process. This backup can be used to recover the PGP key without adverse effects, much in the same way a BIP39 recovery phrase allows the bearer to re-derive the private keys in a cryptocurrency wallet.
-
-## Creation Timestamps
-
-OpenPGP keys are identified by their fingerprint, which is a hash of the serialized public key, including its creation time. That means in order to make deterministic key backup and recovery possible without invalidating the previous key's signatures, the creation time must either be encoded into the backup, or it must be a static constant used for all keys. We chose to encode the creation time into the backup, because having distinct key creation times is convenient and worth the extra few bits of information lengthening the backup.
-
-Key creation times in OpenPGP keys are represented as 32-bit unix timestamps. We can save a bit more space by reducing the size of the key creation timestamp slightly. We don't need a full 32-bits of precision, since a very large chunk of time since the unix epoch on `1970-01-01` has already passed, and Mnemonikey was invented in 2023. If we define our own epoch, we can easily trim down to 31 bits of precision, while retaining perfect second-level accuracy, and supporting key creation times until `2091-01-18`. Hopefully by then, people will have adopted more advanced cryptography tools than PGP. If Mnemonikey is still in use by then, we can simply bump the version number and redefine the creation timestamp encoding rules, for example by defining a new epoch.
-
-We could reduce the size of the key creation timestamp much more by sacrificing timestamp granularity. If we were OK with per-day accuracy only, we could reduce the creation offset integer's size to 15-bits of precision, but this comes at the cost of privacy: Keys created with such granularity in their timestamp could be easily identified as having come from Mnemonikey.
-
-|Timestamp size|Words Needed|Ceiling (1s granularity)|Ceiling (1min granularity)|Ceiling (1h granularity)|Ceiling (1d granularity)|
-|:------------:|:----------:|:----------------------:|:------------------------:|:----------------------:|:----------------------:|
-|32 bits|14 words|`2159-02-06`|Very High|Very High|Very High|
-|31 bits|14 words|`2091-01-18`|`6106-01-23`|Very High|Very High|
-|30 bits|14 words|`2057-01-09`|`4064-07-12`|Very High|Very High|
-|29 bits|14 words|`2040-01-05`|`3043-10-07`|Very High|Very High|
-|28 bits|14 words|`2031-07-04`|`2533-05-20`|Very High|Very High|
-|27 bits|14 words|`2027-04-03`|`2278-03-11`|Very High|Very High|
-|26 bits|14 words|`2025-02-15`|`2150-08-06`|`9678-09-28`|Very High|
-|25 bits|14 words|`2024-01-24`|`2086-10-18`|`5850-11-14`|Very High|
-|24 bits|13 words|Too Low|`2054-11-24`|`3936-12-08`|Very High|
-|23 bits|13 words|Too Low|`2038-12-13`|`2979-12-19`|Very High|
-|22 bits|13 words|Too Low|`2030-12-22`|`2501-06-26`|Very High|
-|21 bits|13 words|Too Low|`2026-12-27`|`2262-03-30`|`7764-10-21`|
-|20 bits|13 words|Too Low|`2024-12-28`|`2142-08-15`|`4893-11-25`|
-|19 bits|13 words|Too Low|Too Low|`2082-10-23`|`3458-06-14`|
-|18 bits|13 words|Too Low|Too Low|`2052-11-26`|`2740-09-22`|
-|17 bits|13 words|Too Low|Too Low|`2037-12-13`|`2381-11-11`|
-|16 bits|13 words|Too Low|Too Low|`2030-06-23`|`2202-06-07`|
-|15 bits|13 words|Too Low|Too Low|`2026-09-27`|`2112-09-18`|
-|14 bits|13 words|Too Low|Too Low|`2024-11-13`|`2067-11-09`|
-|13 bits|13 words|Too Low|Too Low|Too Low|`2045-06-05`|
-|12 bits|12 words|Too Low|Too Low|Too Low|`2034-03-19`|
-|11 bits|12 words|Too Low|Too Low|Too Low|`2028-08-09`|
-|10 bits|12 words|Too Low|Too Low|Too Low|`2025-10-20`|
-|9 bits|12 words|Too Low|Too Low|Too Low|`2024-05-26`|
-|8 bits|12 words|Too Low|Too Low|Too Low|Too Low|
-
-<details>
-    <summary><i>Script to generate the above table</i></summary>
-
-```python
-#!/usr/bin/env python3
-
-from datetime import datetime
-
-column_names = [
-  "Timestamp size",
-  "Words Needed",
-  "Ceiling (1s granularity)",
-  "Ceiling (1min granularity)",
-  "Ceiling (1h granularity)",
-  "Ceiling (1d granularity)",
-]
-
-granularities = [1, 60, 60**2, 60**2 * 24]
-
-epoch = 1672531200
-
-rows = []
-
-for ts_bits in reversed(range(8, 33)):
-  n_words = (128 + ts_bits + 4 + 11) // 12
-
-  row = ["%d bits" % ts_bits, "%d words" % n_words]
-
-  for g in granularities:
-    try:
-      d = datetime.fromtimestamp(epoch + (1 << ts_bits)*g - 1)
-      if d.year <= 2023:
-        ceiling = "Too Low"
-      else:
-        ceiling = "`" + str(d.date()) + "`"
-    except:
-      ceiling = "Very High"
-    row.append(ceiling)
-  rows.append("|" + '|'.join(row) + "|")
-
-header = "|" + "|".join(column_names) + "|"
-delim =  "|" + "|".join([":" + "-" * (len(name)-2) + ":" for name in column_names]) + "|"
-
-print('\n'.join([header, delim] + rows))
-```
-</details>
-
-We might have chosen to require the user to provide a copy of the original public key when recovering, since an OpenPGP public key packet would also contain the key creation timestamp. This is the approach used by [`paperkey`](https://www.jabberwocky.com/software/paperkey/). However, it may be counterintuitive to the average PGP user to require the _public key_ to recover a _private key,_ so instead we keep a minimum of recovery information bundled in the recovery phrase, and restrict the generation process tightly so as to enforce determinism when the key is re-generated later. This choice also simplifies Mnemonikey implementations, because they do not need to be concerned with _parsing_ OpenPGP key packets, only _generating_ them.
-
-## Curve Choice
-
-We chose ED25519 as the elliptic curve for the output PGP keys because:
-
-- Its keys are very small.
-- It has excellent performance.
-- It is designed to avoid common security pitfalls in downstream implementations.
-- It is designed with 'nothing up my sleeve' parameters to reduce risk of a back-door.
-- It is usable for signing, encryption, and authentication with SSH.
-- Golang has first-class ED25519 and Curve25519 implementations available.
-
-## Subkey Lifecycle
-
-To allow cycling of subkeys, Mnemonikey can derive each type of subkey at any arbitrary index from 0 to 65535 (`0xFFFF`). Subkeys are always derived in parallel from the root key, and not from one-another. The only way to derive a new subkey is to use the root key, which can only be derived from the seed and creation time embedded in the recovery phrase.
-
-<img src="https://user-images.githubusercontent.com/31221309/209289189-b6a7a536-9f87-4a72-819f-a5e7f8662869.png">
-
-<!-- https://beta.tldraw.com/r/v2_c_8cvIL1LtquLf5X5fXFV8K -->
-
-No subkey has any special preference or power over any other. When generated, any subkeys derived from the same seed will all have the same creation timestamp as the master key.
-
-The master key cannot be used to re-derive any Mnemonikey subkeys, although it could be used to sign new non-deterministically generated subkeys out-of-band and bind them to the same user ID. **We recommend not to do this,** because any subkeys generated outside of Mnemonikey **cannot be re-generated** with the Mnemonikey recovery phrase later.
-
-The normal use of subkeys involves revoking subkeys once they become compromised or outdated. To do this with Mnemonikey, one would revoke their old subkey at index $n$ using a downstream PGP tool (`gpg --edit uid` and type `key n`, and then type `revkey`). Then Mnemonikey can be used to generate a fresh subkey at index $n+1$. This derived subkey should be exported on its own, orphaned from the master key and other subkeys, and imported into the PGP keychain.
-
-### Example
-
-**Derive a new _signing_ subkey at index `1` with the `mnemonikey` CLI, and import it into a GPG keychain which already contains the related master key.**
-
-```cli
-$ mnemonikey recover -only signing -sig-index 1 -self-cert=false | gpg --import
-```
-
-#### Generate a master key and signing subkey (starts at default index 0).
-
-<img width="700" src="https://github.com/kklash/mnemonikey/assets/31221309/6b5c4de0-0898-4829-b751-dcea5a6560cc">
-
-#### Derive the new signing subkey at index 1, and revoke the old one at index 0.
-
-<img width="700" src="https://github.com/kklash/mnemonikey/assets/31221309/6420d764-7ba3-42ac-994d-e31317598057">
-
-`-self-cert=false` is an optional flag which tells Mnemonikey not to output the master key's self-certification signature on the user ID. This is useful when minting new subkeys, in a situation where you already have the master key stored safely in your keyring. It prevents adding unneeded extra certification signatures to your keychain.
-
-## Security
-
-PGP keys derived by Mnemonikey are entirely determined by the 128 bits of entropy in the seed and the distinguishing (but predictable) key creation timestamp. Argon2id hashes the seed and key creation time into a 256-bit _root key._
-
-Since the seed only bears 128 bits of entropy, and ED25519 private keys are 256-bit integers, there exists the potential for batched brute-force attacks which could yield some successful guesses across a large population of public keys. To mitigate this, we hash the key creation time as well, to add extra uniqueness to each key. The difficulty of the Argon2id password hashing function further reduces the feasibility of brute-force attacks by significantly increasing the time and memory cost of key derivation.
-
-To derive a full set of four OpenPGP keys - the master certification key and the signing/encryption/authentication subkeys - we need a total of $256 \cdot 4 = 1024$ bits of secure key material. For this we use the [HMAC-based Key Derivation Function (HKDF)](https://www.rfc-editor.org/rfc/rfc5869) Expand function to expand the uniformly random _root key_ into four 256-bit private keys. Each key including the master certification key is derived flatly from the _root key,_ without any hierarchy.
-
-### Encrypted Phrases
-
-Encrypted phrases offer additional protection from accidental exposure or theft of a recovery phrase.
-
-We could have chosen to follow the classic BIP39 mechanism of password-derived keys, where keys would be derived by hashing a user-specified password with the seed entropy. In this paradigm, a 'plaintext' phrase would be a recovery phrase plus an empty password. Using any other password would derive a completely different PGP key set. This allows one recovery phrase to be used to derive multiple PGP key sets, by using multiple unique derivation passwords. Each particular output PGP key set would be _tightly bound_ to the password and seed entropy which derived it.
-
-This approach has some flaws. Notably, it doesn't work very well for our specific domain of PGP keys. Unlike with Bitcoin wallets, most people only ever need one PGP master key. Having the ability to derive more PGP master keys by changing the derivation password can actually be counterintuitive. Most people are used to password-based logins, which either succeed or fail. In a BIP39-like derivation scheme, any password is allowed, and the user would have to check the output PGP key fingerprint to ensure they used the correct password and derived the expected keys. Having worked on a cryptocurrency wallet myself in the past, I am intimately familiar with the confusion this causes for non-expert users.
-
-Furthermore, a BIP39-like derivation scheme doesn't allow _changing passwords,_ and is not cross-compatible with plaintext backups. If you create a PGP key set which is derived from a specific seed and password, the keys _can only ever be recovered with that same seed and password._ If you ever want to change the password - or remove it entirely - you're out of luck and would have to take enormous effort to swap your whole digital identity to a whole new PGP key derived from your _new_ password.
-
-Rather than binding a password tightly to the PGP key, _encrypted phrases_ on the other hand, are more like a layer of protection _on top_ of a plaintext recovery phrase. With encrypted phrases, a user can decide at any point to re-export their recovery phrase with a new password. They can update their paper backups to use this new phrase encrypted with the new password, but keep the same resulting PGP key set. Similarly, someone with a plaintext recovery phrase could at any point choose to update their recovery phrase with password-protection (and vice-versa).
-
-Using encrypted phrases does have a small drawback: We must now include a `salt` value in the backup payload, to ensure the same password does not always hash to the same encryption key, thus reducing the feasibility of pre-computation attacks. This increases the size of the recovery phrase, but the additional flexibility is well worth it.
-
-We also further salt the password hash with the key creation time, to further distinguish the seed encryption keys of different users.
-
-**The encryption on a recovery phrase is not meant to protect a publicly available phrase for a long period of time, but to protect a physically secure phrase for a short period of time.** It is suitable only to give a victim enough time to endorse a new freshly generated PGP key and revoke her old exposed PGP key. This must be done before an attacker can brute-force the password. It is *not* intended to protect the seed while it is exposed publicly on some insecure platform for long stretches of time - e.g. stored in Google Docs or DropBox. To achieve security in that scenario, a suitably (read: ridiculously) strong password with at least 128 bits of entropy should be used.
-
-19 bits of salt was determined to be the best trade-off between brevity and security. A shorter salt is acceptable. Most likely, if your recovery phrase is exposed, you will probably know about it. E.g. [your safety deposit box was broken into](https://www.latimes.com/california/story/2021-06-09/fbi-beverly-hills-safe-deposit-boxes-forfeiture-cash-jewelry), or [someone accidentally published a picture of your recovery phrase online](https://twitter.com/lopp/status/1604599964713328640)). It will presumably be rare and challenging for an adversary to acquire your encrypted recovery phrase. This contrasts with salted password hashes, which are commonly stored in bulk on networked cloud databases, and are frequently leaked. As such the size of the salt is less critical.
-
-To give the decoder some indication of whether the password was correct or not, we also want some kind of checksum on the decrypted seed or on the encryption key.
-
-Using an _actual checksum_ - like CRC-32, which we use for the mnemonic phrase - might leak data about the seed or its encryption key. Instead we simply derive one extra byte from Argon2id when hashing the user's password, and use a few bits from that as the checksum. This way, the checksum is still derived from the password and salt, but doesn't leak any information about the seed, nor about the key used to decrypt the seed.
-
-## Encoding
-
-Each word in a recovery phrase is one of 4096 ( $2^{12}$ ) different words, and thus encodes 12 bits of information. To encode a plaintext recovery phrase, at minimum we need to store both the entropy (128 bits) and the key creation time offset from the epoch (31 bits).
-
-$128 + 31 = 159$ and $\frac{159}{12} = 13\frac{3}{12}$. Therefore, the minimum number of words we could use to encode the full backup payload would be 14 words, leaving 9 unused bits. These last 9 bits can be used for a **4-bit version number** and **5-bit checksum**.
-
-For encrypted recovery phrases, we must also encode a `salt` value and a small checksum (`encSeedVerify`) in addition to the other fields. If we allot the same 5-bit checksum size for `encSeedVerify` as for the phrase checksum itself, we can now choose for `salt` a bit-size which is some multiple of $12n + 7$. So we could choose 7 bits, 19 bits, 31 bits, etc. For a balance of security and brevity, we selected 19 bits.
-
-This diagram demonstrates the **bit-level layout** of each word in a plaintext mnemonic recovery phrase, and how it encodes the backup payload and checksum. Each number from `0` to `b` (11) is an index of each of the 12 bits encoded by a word in the mnemonic.
-
-```
-|-- version --|------------------------------------ seed -------------------------------------
-|------------------ word 0 -------------------|------------------- word 1 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
--------------------------------------------- seed --------------------------------------------
-|------------------ word 2 -------------------|------------------- word 3 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
--------------------------------------------- seed --------------------------------------------
-|------------------ word 4 -------------------|------------------- word 5 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
--------------------------------------------- seed --------------------------------------------
-|------------------ word 6 -------------------|------------------- word 7 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
--------------------------------------------- seed --------------------------------------------
-|------------------ word 8 -------------------|------------------- word 9 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
--------------------- seed --------------------|--------------- creationOffset ----------------
-|------------------ word 10 ------------------|------------------- word 11 ------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
------------------------------ creationOffset -----------------------------|---- checksum ----|
-|------------------ word 12 ------------------|------------------- word 13 ------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-```
-
-|Field|Size|
-|:-:|:-:|
-|`version`|4 bits|
-|`seed`|128 bits|
-|`creationOffset`|31 bits|
-|`checksum`|5 bits|
-|---|---|
-|**Total**|168 bits|
-|**Words Needed**|$\frac{168}{12}=14$|
-
-This is an equivalent diagram and table showing the encoding layout of an encrypted phrase.
-
-```
-|-- version --|----------------------------------- encSeed -----------------------------------
-|------------------ word 0 -------------------|------------------- word 1 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
------------------------------------------- encSeed -------------------------------------------
-|------------------ word 2 -------------------|------------------- word 3 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
------------------------------------------- encSeed -------------------------------------------
-|------------------ word 4 -------------------|------------------- word 5 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
------------------------------------------- encSeed -------------------------------------------
-|------------------ word 6 -------------------|------------------- word 7 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
------------------------------------------- encSeed -------------------------------------------
-|------------------ word 8 -------------------|------------------- word 9 -------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
-------------------- encSeed ------------------|-------------------- salt ---------------------
-|------------------ word 10 ------------------|------------------- word 11 ------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
----------- salt ----------|-- encSeedVerify --|--------------- creationOffset ----------------
-|------------------ word 12 ------------------|------------------- word 13 ------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-
-
----------------------------- creationOffset ------------------------------|---- checksum ----|
-|------------------ word 12 ------------------|------------------- word 13 ------------------|
-0   1   2   3   4   5   6   7   8   9   a   b   0   1   2   3   4   5   6   7   8   9   a   b
-```
-
-|Field|Size|
-|:-:|:-:|
-|`version`|4 bits|
-|`encSeed`|128 bits|
-|`salt`|19 bits|
-|`encSeedVerify`|5 bits|
-|`creationOffset`|31 bits|
-|`checksum`|5 bits|
-|---|---|
-|**Total**|192 bits|
-|**Words Needed**|$\frac{192}{12}=16$|
-
-
-## Wordlist
-
-To read more about the wordlist used to encode the Mnemonikey recovery phrases, [check out the separate `wordlist4096` repository](https://github.com/kklash/wordlist4096).
-
-## Version Numbers
-
-The version numbers embedded in mnemonic recovery phrases tell Mnemonikey implementations how to decode a recovery phrase and derive the PGP keys from the backup payload. The version number may be incremented in the future - for example, to fix a critical bug, support post-quantum key algorithms, or define a new key creation time epoch.
-
-The `era` number is distinct from the mnemonic `version` number.
-
-- Era numbers describe _how to derive PGP keys from a seed and creation time._
-- Version numbers describe _how to decode a recovery phrase into a seed and creation time._
-
-Version numbers map many-to-one into era numbers, so that a decoder can know which procedure to use to recover a PGP key set after decoding.
-
-Version numbers within an Era are cross-compatible: You can convert between recovery phrases in the same era without losing compatibility or changing the resulting PGP key set derived from the seed.
-
-Era numbers are not cross-compatible. If we change the procedure for recovering a PGP key set, this will fundamentally change the resulting PGP key set that we derive.
-
-## Checksum
-
-Words in a recovery phrase must already be members of the wordlist to be considered valid, but on the off-chance a user enters another valid but incorrect word, a 5-bit checksum will provide error detection with a collision probability of roughly $\frac{1}{32}$. With a word list of 4096 valid words, that means there are 128 possible collision-causing 1-word substitutions which the user could accidentally perform for each word in the phrase.
-
-We chose to use 32-bit [cyclic-redundancy-checks](https://en.wikipedia.org/wiki/Cyclic_redundancy_check) (CRC-32) with the IEEE generator polynomial as our checksum, because of its speed and ubiquitous availability. There are cross-compatible implementations available in the standard libraries of most programming languages, and numerous test vectors available should anyone need to re-implement it.
 
 ## Acknowledgments
 
