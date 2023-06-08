@@ -27,7 +27,7 @@ Please see [the discussions board](https://github.com/kklash/mnemonikey/discussi
 - Phrases are encoded with [a custom high-density wordlist](https://github.com/kklash/wordlist4096) with stronger guarantees than BIP39.
 - Phrases include a checksum to confirm you entered the phrase correctly.
 - Supports encrypted phrases. You can change or remove the password at any time by [converting phrases](#mnemonikey-convert).
-- Easily auditable small code footprint: only \~4000 lines of source code, plus \~14000 lines of code from dependencies.
+- Easily auditable small code footprint: only \~4,000 lines of my source code (plus official Golang libraries).
 - [Reproducible builds](#reproducible-builds) for security guarantees.
 - [Supports subkey cycling](#subkey-lifecycle).
 - Fancy colored terminal output (Let's be honest, this is the most important feature :sunglasses: ).
@@ -60,6 +60,30 @@ $ go get -u github.com/kklash/mnemonikey
 ```
 
 API documentation for the Mnemonikey library is [available on `pkg.go.dev`](https://pkg.go.dev/github.com/kklash/mnemonikey).
+
+## Saving the Source
+
+In case this repository of Mnemonikey is ever taken down, it would be wise to also save a copy of the Mnemonikey source code to ensure you can recover your keys. The easiest way to do this is to:
+
+1. [Install Golang](https://go.dev/dl)
+1. Download a copy of this repository
+1. Download all dependencies into the repo folder locally
+1. Archive the whole directory and store it somewhere safe.
+
+```
+git clone https://github.com/kklash/mnemonikey.git
+cd mnemonikey/cmd/mnemonikey
+go mod vendor
+cd ../../..
+zip -r mnemonikey{.zip,}
+cp mnemonikey.zip /path/to/safe/location
+```
+
+Alternatively you could:
+
+- Download a copy of [this repository](https://github.com/kklash/mnemonikey/archive/refs/heads/main.zip) and of [the `wordlist4096` repository](https://github.com/kklash/wordlist4096/archive/refs/heads/main.zip).
+- Fork this repository and [`wordlist4096`](https://github.com/kklash/wordlist4096).
+- Create another implementation of the Mnemonikey specification in another language - I'd be flattered!
 
 ### Reproducible Builds
 
