@@ -20,6 +20,18 @@ Until this warning is removed, **DO NOT use Mnemonikey to generate PGP keys for 
 
 Please see [the discussions board](https://github.com/kklash/mnemonikey/discussions) to help with finalizing the Mnemonikey specification.
 
+## Features
+
+- Keys are derived from a seed and creation time using modern, secure algorithms (Argon2id and HKDF).
+- Recovery phrases include a version number to guarantee forwards-compatibility and long-term safety of your backup.
+- Phrases are encoded with [a custom high-density wordlist](https://github.com/kklash/wordlist4096) with stronger guarantees than BIP39.
+- Phrases include a checksum to confirm you entered the phrase correctly.
+- Supports encrypted phrases. You can change or remove the password at any time by [converting phrases](#mnemonikey-convert).
+- Easily auditable small code footprint: only \~4000 lines of source code, plus \~14000 lines of code from dependencies.
+- [Reproducible builds](#reproducible-builds) for security guarantees.
+- [Supports subkey cycling](#subkey-lifecycle).
+- Fancy colored terminal output (Let's be honest, this is the most important feature :sunglasses: ).
+
 ## PGP Key Backup Alternatives
 
 |Backup Format|Secure By Default|Memorizable|Offline|Robust|
