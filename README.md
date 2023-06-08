@@ -27,9 +27,12 @@ Please see [the discussions board](https://github.com/kklash/mnemonikey/discussi
 |Secret Key File on a hard drive or SD card|:heavy_check_mark:|:x:|:x:|:x:|
 |[`passphrase2pgp`](https://github.com/skeeto/passphrase2pgp)|:x:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
 |[`paperkey`](https://www.jabberwocky.com/software/paperkey/)|:white_check_mark: *|:x:|:heavy_check_mark:|:heavy_check_mark:|
+|[`trezor-agent`](https://github.com/romanz/trezor-agent) <sub>(plus a hardware wallet)</sub> |:heavy_check_mark:|:white_check_mark: \*\*|:heavy_check_mark:|:heavy_check_mark:|
 |**`mnemonikey`**|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
 
-<sub>\* `paperkey` printouts are only as secure as the printer used to print them</sub>
+<sub>\* `paperkey` printouts are only as secure as the printer used to print them.</sub>
+
+<sub>\*\* `trezor-gpg` requires manual backup of the key creation timestamp.</sub>
 
 ## Installation
 
