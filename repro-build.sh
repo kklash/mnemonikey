@@ -25,7 +25,7 @@ for os in linux windows darwin; do
     outfile="mnemonikey-$os-$arch"
     echo "Building $outfile..."
 
-    GOOS=$os GOARCH=$arch go build -C ./cmd/mnemonikey -trimpath -buildvcs=false -ldflags='-s -w' -o "../../build/$outfile"
+    GOOS=$os GOARCH=$arch go build -trimpath -buildvcs=false -ldflags='-s -w' -o "../../build/$outfile" ./cmd/mnemonikey
   done
 done
 

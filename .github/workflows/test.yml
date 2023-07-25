@@ -42,8 +42,3 @@ jobs:
 
       - name: test library
         run: go test -vet=all ./...
-
-      - name: test binary
-        run: |
-          cd ./cmd/mnemonikey
-          go test -vet=all

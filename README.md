@@ -72,9 +72,9 @@ In case this repository of Mnemonikey is ever taken down, it would be wise to al
 
 ```
 git clone https://github.com/kklash/mnemonikey.git
-cd mnemonikey/cmd/mnemonikey
+cd mnemonikey
 go mod vendor
-cd ../../..
+cd ..
 zip -r mnemonikey{.zip,}
 cp mnemonikey.zip /path/to/safe/location
 ```
