@@ -47,6 +47,10 @@ const (
 	keyFlagEncryptStorage        byte = 0b00001000
 	keyFlagAuthenticate          byte = 0b00100000
 
+	// This flag indicates the key holder requests that this key only be modified
+	// or updated by the key holder or an administrator of the key server.
+	keyServerNoModifyFlag byte = 0x80
+
 	// These bytes indicate the procedure used to encrypt keys in PGP keychains
 	// and in serialized OpenPGP packets.
 	stringToKeyUsageSimple            byte = 1
@@ -63,20 +67,33 @@ var (
 	// encryption keys.
 	DefaultKDFParameters = &KeyDerivationParameters{
 		HashFunction:    HashFuncSHA256,
-		CipherAlgorithm: CipherAlgoAES256,
+		CipherAlgorithm: CipherAlgoAES128,
 	}
 
 	// DefaultStringToKeyHashFunc is the default string-to-key (S2K) hash function.
 	DefaultStringToKeyHashFunc = HashFuncSHA256
 )
 
+// CompresssionAlgoID represents a compression algorithm used to compress signed
+// or encrypted data.
+type CompresssionAlgoID byte
+
+const (
+	CompressionAlgoNone  CompresssionAlgoID = 0
+	CompressionAlgoZIP   CompresssionAlgoID = 1
+	CompressionAlgoZLIB  CompresssionAlgoID = 2
+	CompressionAlgoBZIP2 CompresssionAlgoID = 3
+)
+
 // HashFuncID identifies a hash function within OpenPGP packets.
 type HashFuncID byte
 
 const (
+	HashFuncSHA1   HashFuncID = 2
 	HashFuncSHA256 HashFuncID = 8
 	HashFuncSHA384 HashFuncID = 9
 	HashFuncSHA512 HashFuncID = 10
+	HashFuncSHA224 HashFuncID = 11
 )
 
 func (id HashFuncID) New() hash.Hash {
@@ -95,6 +112,7 @@ func (id HashFuncID) New() hash.Hash {
 type CipherAlgoID byte
 
 const (
+	CipherAlgoDES    CipherAlgoID = 2
 	CipherAlgoAES128 CipherAlgoID = 7
 	CipherAlgoAES192 CipherAlgoID = 8
 	CipherAlgoAES256 CipherAlgoID = 9
@@ -176,6 +194,7 @@ const (
 	SubpacketTypeIssuer                         SubpacketType = 16
 	SubpacketTypePreferredHashAlgorithms        SubpacketType = 21
 	SubpacketTypePreferredCompressionAlgorithms SubpacketType = 22
+	SubpacketTypeKeyServerPreferences           SubpacketType = 23
 	SubpacketTypeKeyFlags                       SubpacketType = 27
 	SubpacketTypeFeatures                       SubpacketType = 30
 	SubpacketTypeEmbeddedSignature              SubpacketType = 32

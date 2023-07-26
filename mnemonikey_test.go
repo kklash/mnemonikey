@@ -71,7 +71,7 @@ func TestMnemonikey(t *testing.T) {
 
 	now := time.Unix(1673800000, 0)
 	fingerprint := "149EE476771DBD4E19D1FB0FC1A9CE93575CA7FA"
-	encryptionSubkeyFingerprint := "7DDB15BC71C3ABBC1B875C828CBC9D2E12D69C81"
+	encryptionSubkeyFingerprint := "C41193904F9CAE4D48E2849D14CF1F4A2D4B2A41"
 	keyOpts := &KeyOptions{
 		Name:    "username",
 		Email:   "user@domain.com",
@@ -159,7 +159,7 @@ func TestMnemonikey(t *testing.T) {
 			t.Fatalf("failed to derive recovered Mnemonikey with incremented encryption subkey: %s", err)
 		}
 
-		expectedFingerprint := "696F446E6C6AF70FD04CA4BC4DF250AD768F1D6D"
+		expectedFingerprint := "DE6EA42E75B134FFD28E5C9AD2001406AECE41EA"
 		actualFpr := fmt.Sprintf("%X", incrementedKey.SubkeyFingerprint(SubkeyTypeEncryption))
 		if actualFpr != expectedFingerprint {
 			t.Fatalf(

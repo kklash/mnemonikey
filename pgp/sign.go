@@ -22,10 +22,16 @@ type SignatureRequest struct {
 	// Type describes what kind of signature should be made.
 	Type SignatureType
 
-	// Subpackets is a collection of extra data which will be committed
+	// HashedSubpackets is a collection of extra data which will be committed
 	// to by the signature.
-	Subpackets []*Subpacket
-	Time       time.Time
+	HashedSubpackets []*Subpacket
+
+	// UnhashedSubpackets is a collection of extra subpackets which are not
+	// committed to by the signature.
+	UnhashedSubpackets []*Subpacket
+
+	// Time is the timestamp when the signature is created.
+	Time time.Time
 }
 
 // Sign signs the signature request using the EdDSA algorithm on the
@@ -34,29 +40,32 @@ func Sign(privateKey ed25519.PrivateKey, req *SignatureRequest) *Signature {
 	signatureTimestamp := make([]byte, 4)
 	binary.BigEndian.PutUint32(signatureTimestamp, uint32(req.Time.Unix()))
 
-	subpackets := []*Subpacket{
-		{
-			Type: SubpacketTypeCreationTime,
-			Body: signatureTimestamp,
-		},
+	hashedSubpackets := []*Subpacket{
 		{
 			Type: SubpacketTypeIssuerFingerprint,
 			Body: append([]byte{keyPacketVersion}, req.SigningKeyFingerprint...),
 		},
+		{
+			Type: SubpacketTypeCreationTime,
+			Body: signatureTimestamp,
+		},
 	}
-	subpackets = append(subpackets, req.Subpackets...)
+	hashedSubpackets = append(hashedSubpackets, req.HashedSubpackets...)
+
+	unhashedSubpackets := []*Subpacket{
+		{
+			// TODO remove this if using a key with version 5.
+			Type: SubpacketTypeIssuer,
+			Body: req.SigningKeyFingerprint[len(req.SigningKeyFingerprint)-8:],
+		},
+	}
+	unhashedSubpackets = append(unhashedSubpackets, req.UnhashedSubpackets...)
 
 	signature := &Signature{
-		HashedSubpackets: subpackets,
-		Type:             req.Type,
-		HashFunction:     req.HashFunction,
-		UnhashedSubpackets: []*Subpacket{
-			{
-				// TODO remove this if using a key with version 5.
-				Type: SubpacketTypeIssuer,
-				Body: req.SigningKeyFingerprint[len(req.SigningKeyFingerprint)-8:],
-			},
-		},
+		HashedSubpackets:   hashedSubpackets,
+		Type:               req.Type,
+		HashFunction:       req.HashFunction,
+		UnhashedSubpackets: unhashedSubpackets,
 	}
 
 	h := req.HashFunction.New()
