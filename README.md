@@ -719,7 +719,7 @@ The resulting serialized binary blob is a usable OpenPGP private key, determinis
   - Cipher algorithm preferences should be set to `AES256 AES192 AES128` to match default GPG.
   - Hash algorithm preferences should be set to `SHA512 SHA384 SHA256 SHA224 SHA1` to match default GPG.
   - Compression algorithm preferences should be set to `ZLIB BZIP2 ZIP` to match default GPG.
-  - This is not mandatory, but reduces the risk that software into which the key is imported will use outdated defaults like SHA1 and Tripe-DES, by providing a safe default set of algorithms which is usually available for most software. To overwrite these default preferences with your own in `gpg`, use `gpg --edit-key` and type `setpref`.
+  - This is not mandatory, but reduces the risk that software into which the key is imported will use outdated defaults like SHA1 and Triple-DES, by providing a safe default set of algorithms which is usually available for most software. To overwrite these default preferences with your own in `gpg`, use `gpg --edit-key` and type `setpref`.
 - Also in the self-certification signature:
   - Key server preferences should be set to the 'no-modify' flag, `0x80`.
   - The features flag subpacket should be set to enable MDC. [_"MDC MUST be used when a symmetric encryption key is protected by ECDH."_](https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-ec-dh-algorithm-ecdh)
