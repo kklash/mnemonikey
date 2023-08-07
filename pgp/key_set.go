@@ -125,12 +125,7 @@ func (keySet *KeySet) encodeAllSubkeyPackets(password []byte) ([]byte, error) {
 // encodeSelfCertification creates a self-certification signature by the master key
 // and encodes it as a binary OpenPGP packet.
 func (keySet *KeySet) encodeSelfCertification() []byte {
-	var kdfParams *KeyDerivationParameters
-	if keySet.EncryptionSubkey != nil {
-		kdfParams = keySet.EncryptionSubkey.KDF
-	}
-	selfCertSig := keySet.MasterKey.SelfCertify(keySet.UserID, kdfParams)
-	return selfCertSig.EncodePacket()
+	return keySet.MasterKey.SelfCertify(keySet.UserID).EncodePacket()
 }
 
 // EncodePackets encodes the KeySet as a series of binary OpenPGP packets.

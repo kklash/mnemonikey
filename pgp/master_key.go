@@ -80,13 +80,7 @@ func (key *ED25519MasterKey) EncodePrivateDummyPacket() []byte {
 
 // SelfCertify returns a self-certification signature, needed
 // to prove the key attests to being owned by a given user identifier.
-func (key *ED25519MasterKey) SelfCertify(
-	userID *UserID,
-	kdfParams *KeyDerivationParameters,
-) *Signature {
-	if kdfParams == nil {
-		kdfParams = DefaultKDFParameters
-	}
+func (key *ED25519MasterKey) SelfCertify(userID *UserID) *Signature {
 
 	publicKeyPayload := key.base.encodePublic()
 	userIDPayload := userID.Encode()
@@ -103,25 +97,21 @@ func (key *ED25519MasterKey) SelfCertify(
 	binary.Write(buf, binary.BigEndian, uint32(len(userIDPayload)))
 	buf.Write(userIDPayload)
 
+	// Signed subpackets should use the same ordering as default GPG keys.
+	// - Issuer fingerprint (added by the Sign() function)
+	// - Signature time (added by the Sign() function)
+	// - Key flags
+	// - Expiry
+	// - Cipher preferences
+	// - Hash preferences
+	// - Compression preferences
+	// - Features (MDC)
+	// - Key server preferences
+
 	subpackets := []*Subpacket{
 		{
 			Type: SubpacketTypeKeyFlags,
 			Body: []byte{keyFlagCertify},
-		},
-		{
-			Type: SubpacketTypePreferredCipherAlgorithms,
-			Body: []byte{byte(kdfParams.CipherAlgorithm)},
-		},
-		{
-			Type: SubpacketTypePreferredHashAlgorithms,
-			Body: []byte{byte(kdfParams.HashFunction)},
-		},
-		{
-			// Enable MDC. "AEAD encryption or a Modification Detection Code (MDC)
-			// MUST be used anytime the symmetric key is protected by ECDH."
-			// https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-ec-dh-algorithm-ecdh
-			Type: SubpacketTypeFeatures,
-			Body: []byte{1},
 		},
 	}
 
@@ -134,6 +124,49 @@ func (key *ED25519MasterKey) SelfCertify(
 		})
 	}
 
+	subpackets = append(subpackets,
+		// Use the same preferred cipher, hash, and compression algorithms as default GPG keys.
+		&Subpacket{
+			Type: SubpacketTypePreferredCipherAlgorithms,
+			Body: []byte{
+				byte(CipherAlgoAES256),
+				byte(CipherAlgoAES192),
+				byte(CipherAlgoAES128),
+				byte(CipherAlgoDES),
+			},
+		},
+		&Subpacket{
+			Type: SubpacketTypePreferredHashAlgorithms,
+			Body: []byte{
+				byte(HashFuncSHA512),
+				byte(HashFuncSHA384),
+				byte(HashFuncSHA256),
+				byte(HashFuncSHA224),
+				byte(HashFuncSHA1),
+			},
+		},
+		&Subpacket{
+			Type: SubpacketTypePreferredCompressionAlgorithms,
+			Body: []byte{
+				byte(CompressionAlgoZLIB),
+				byte(CompressionAlgoBZIP2),
+				byte(CompressionAlgoZIP),
+			},
+		},
+
+		// Enable MDC. "AEAD encryption or a Modification Detection Code (MDC)
+		// MUST be used anytime the symmetric key is protected by ECDH."
+		// https://www.ietf.org/archive/id/draft-ietf-openpgp-rfc4880bis-10.html#name-ec-dh-algorithm-ecdh
+		&Subpacket{
+			Type: SubpacketTypeFeatures,
+			Body: []byte{1},
+		},
+		&Subpacket{
+			Type: SubpacketTypeKeyServerPreferences,
+			Body: []byte{keyServerNoModifyFlag},
+		},
+	)
+
 	return Sign(
 		key.Private,
 		&SignatureRequest{
@@ -141,7 +174,7 @@ func (key *ED25519MasterKey) SelfCertify(
 			HashFunction:          HashFuncSHA256,
 			Data:                  buf.Bytes(),
 			Type:                  SignatureTypePositiveCertification,
-			Subpackets:            subpackets,
+			HashedSubpackets:      subpackets,
 			Time:                  key.Creation,
 		},
 	)
@@ -186,11 +219,12 @@ func (key *ED25519MasterKey) BindSubkey(
 
 	// cross-certification: binds the subkey to the master key to confirm they are
 	// owned by the same person. See: https://gnupg.org/faq/subkey-cross-certify.html
+	var unhashedSubpackets []*Subpacket
 	if keyFlags&keyFlagSign != 0 {
 		if subkeyBase.PrivateSigning == nil {
 			panic("attempting to bind to signing key, but signing key doesn't have an ed25519.PrivateKey")
 		}
-		subpackets = append(subpackets, &Subpacket{
+		unhashedSubpackets = []*Subpacket{{
 			Type: SubpacketTypeEmbeddedSignature,
 			Body: Sign(
 				subkeyBase.PrivateSigning,
@@ -199,11 +233,10 @@ func (key *ED25519MasterKey) BindSubkey(
 					HashFunction:          HashFuncSHA256,
 					Data:                  buf.Bytes(),
 					Type:                  SignatureTypePrimaryKeyBinding,
-					Subpackets:            subpackets,
 					Time:                  subkeyBase.Creation,
 				},
 			).Encode(),
-		})
+		}}
 	}
 
 	return Sign(
@@ -213,7 +246,8 @@ func (key *ED25519MasterKey) BindSubkey(
 			HashFunction:          HashFuncSHA256,
 			Data:                  buf.Bytes(),
 			Type:                  SignatureTypeSubkeyBinding,
-			Subpackets:            subpackets,
+			HashedSubpackets:      subpackets,
+			UnhashedSubpackets:    unhashedSubpackets,
 			Time:                  subkeyBase.Creation,
 		},
 	)
