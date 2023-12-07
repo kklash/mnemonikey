@@ -12,14 +12,6 @@ Mnemonikey allows you to back up your PGP keys without managing highly sensitive
 
 Mnemonikey deterministically derives a full set of PGP keys based on a secure, randomly generated seed. That seed (and the key creation timestamp) is then re-exported in the form of an **English phrase** which you can record on paper to fully back up your PGP key. The recovery phrase is encoded similarly to [how Bitcoin wallets are backed up](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki).
 
-# :rotating_light: :warning: WARNING :warning: :rotating_light:
-
-### The Mnemonikey specification is **NOT YET FINALIZED**.
-
-Until this warning is removed, **DO NOT use Mnemonikey to generate PGP keys for real-world use.**
-
-Please see [the discussions board](https://github.com/kklash/mnemonikey/discussions) to help with finalizing the Mnemonikey specification.
-
 ## Features
 
 - Keys are derived from a seed and creation time using modern, secure algorithms (Argon2id and HKDF).
