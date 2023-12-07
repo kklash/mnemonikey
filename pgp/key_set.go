@@ -2,7 +2,10 @@ package pgp
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	"math/rand"
 )
 
 // KeySet represents a full set of PGP keys, with an associated user identifier.
@@ -92,13 +95,16 @@ func (keySet *KeySet) encodeSigningSubkeyPackets(password []byte) ([]byte, error
 func (keySet *KeySet) encodeAllSubkeyPackets(password []byte) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
+	// Ensure packets are always ordered consistently for the same master key.
+	packetGroups := [][]byte{[]byte{}, []byte{}, []byte{}}
+
 	// Encryption subkey
 	if keySet.EncryptionSubkey != nil {
 		subkeyPackets, err := keySet.encodeEncryptionSubkeyPackets(password)
 		if err != nil {
 			return nil, err
 		}
-		buf.Write(subkeyPackets)
+		packetGroups[0] = subkeyPackets
 	}
 
 	// Authentication subkey
@@ -107,7 +113,7 @@ func (keySet *KeySet) encodeAllSubkeyPackets(password []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		buf.Write(subkeyPackets)
+		packetGroups[1] = subkeyPackets
 	}
 
 	// Signing subkey
@@ -116,7 +122,25 @@ func (keySet *KeySet) encodeAllSubkeyPackets(password []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		buf.Write(subkeyPackets)
+		packetGroups[2] = subkeyPackets
+	}
+
+	// Pseudo-randomly shuffle the subkeys based on a hash of the master private key.
+	// Not required as part of the spec, but good for privacy. Helps
+	// to prevent mnemonikeys from being recognizable based on subkey order.
+	fingerprint := sha256.Sum256(keySet.MasterKey.Private)
+	lastBits := binary.BigEndian.Uint64(fingerprint[:8])
+	seed := int64(lastBits & 0x7FFFFFFFFFFFFFFF)
+	if uint64(seed) != lastBits {
+		seed *= -1
+	}
+	rng := rand.New(rand.NewSource(int64(seed)))
+	rng.Shuffle(len(packetGroups), func(i, j int) {
+		packetGroups[i], packetGroups[j] = packetGroups[j], packetGroups[i]
+	})
+
+	for _, packetGroup := range packetGroups {
+		buf.Write(packetGroup)
 	}
 
 	return buf.Bytes(), nil
